@@ -1,0 +1,8 @@
+numpy
+jax[cuda12]
+mujoco
+mujoco-mjx
+brax
+einops
+equinox
+playground
