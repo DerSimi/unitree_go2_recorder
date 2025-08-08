@@ -15,7 +15,7 @@ find_package(unitree_sdk2 REQUIRED)    # liefert unitree_sdk2
 # alle Demo-Quellen aus dem Original-Repo
 file(GLOB SIM_SRC
   ${CMAKE_SOURCE_DIR}/src/mujoco/*.cc
-  ${CMAKE_SOURCE_DIR}/src/unitree_sdk2_bridge/*.cc
+  ${CMAKE_SOURCE_DIR}/src/extractor/*.cc
 )
 
 # genau wie im Original-Repo
@@ -23,14 +23,13 @@ set(SIM_DEPENDENCIES
   pthread
   mujoco::mujoco
   glfw
-  yaml-cpp
   unitree_sdk2
 )
 
 # Dein Executable, das alle Demo-Dateien + deine main.cc baut
 add_executable(mujoco_extractor
   ${SIM_SRC}
-  ${CMAKE_SOURCE_DIR}/src/mujoco_extractor.cpp
+  ${CMAKE_SOURCE_DIR}/src/main.cpp
 )
 # include src/ so dass <mujoco/glfw_adapter.h> usw. gefunden wird
 target_include_directories(mujoco_extractor

@@ -1,32 +1,32 @@
-#include "unitree_sdk2_bridge.h"
+#include "extractor.h"
 
-UnitreeSdk2Bridge::~UnitreeSdk2Bridge()
+MujocoExtractor::~MujocoExtractor()
 {
 }
 
-UnitreeSdk2Bridge::UnitreeSdk2Bridge(mjModel *model, mjData *data) : mj_model_(model), mj_data_(data)
+MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data) : mj_model_(model), mj_data_(data)
 {
     CheckSensor();
     low_cmd_suber_.reset(new ChannelSubscriber<unitree_go::msg::dds_::LowCmd_>(TOPIC_LOWCMD));
-    low_cmd_suber_->InitChannel(bind(&UnitreeSdk2Bridge::LowCmdGoHandler, this, placeholders::_1), 1);
+    low_cmd_suber_->InitChannel(bind(&MujocoExtractor::LowCmdGoHandler, this, placeholders::_1), 1);
 
     low_state_suber_.reset(new ChannelSubscriber<unitree_go::msg::dds_::LowState_>(TOPIC_LOWSTATE));
-    low_state_suber_->InitChannel(bind(&UnitreeSdk2Bridge::LowStateHandler, this, placeholders::_1), 1);
+    low_state_suber_->InitChannel(bind(&MujocoExtractor::LowStateHandler, this, placeholders::_1), 1);
 
     high_state_suber_.reset(new ChannelSubscriber<unitree_go::msg::dds_::SportModeState_>(TOPIC_HIGHSTATE));
-    high_state_suber_->InitChannel(bind(&UnitreeSdk2Bridge::HighStateHandler, this, placeholders::_1), 1);
+    high_state_suber_->InitChannel(bind(&MujocoExtractor::HighStateHandler, this, placeholders::_1), 1);
 }
 
-void UnitreeSdk2Bridge::LowCmdGoHandler(const void *msg)
+void MujocoExtractor::LowCmdGoHandler(const void *msg)
 {
     const unitree_go::msg::dds_::LowCmd_ *cmd = (const unitree_go::msg::dds_::LowCmd_ *)msg;
     if (mj_data_)
     {
         for (int i = 0; i < num_motor_; i++)
         {
-            // mj_data_->ctrl[i] = cmd->motor_cmd()[i].tau() +
-            //                     cmd->motor_cmd()[i].kp() * (cmd->motor_cmd()[i].q() - mj_data_->sensordata[i]) +
-            //                     cmd->motor_cmd()[i].kd() * (cmd->motor_cmd()[i].dq() - mj_data_->sensordata[i + num_motor_]);
+            mj_data_->ctrl[i] = cmd->motor_cmd()[i].tau() +
+                                cmd->motor_cmd()[i].kp() * (cmd->motor_cmd()[i].q() - mj_data_->sensordata[i]) +
+                                cmd->motor_cmd()[i].kd() * (cmd->motor_cmd()[i].dq() - mj_data_->sensordata[i + num_motor_]);
         }
     }
 }
@@ -47,30 +47,12 @@ nv qvel dimension ist 18:
 wir haben 12 gelenke, pro gelenk eine Geschwindigkeit, 6 + 12 = 18
 */
 
-void UnitreeSdk2Bridge::LowStateHandler(const void *msg)
+void MujocoExtractor::LowStateHandler(const void *msg)
 {
     const unitree_go::msg::dds_::LowState_ *state = (const unitree_go::msg::dds_::LowState_ *)msg;
 
     if (mj_data_)
     {
-        // cout << "low state called" << endl;
-        // cout << mj_data_->qpos[2] << endl;
-
-        // cout << "x: " << mj_data_->qpos[0] << ", "
-        //      << "y: " << mj_data_->qpos[1] << ", "
-        //      << "z: " << mj_data_->qpos[2] << endl;
-
-        // cout << "quat: ["
-        // << mj_data_->qpos[3] << ", "
-        // << mj_data_->qpos[4] << ", "
-        // << mj_data_->qpos[5] << ", "
-        // << mj_data_->qpos[6] << "]" << endl;
-
-        // fix position
-        // mj_data_->qpos[0] = -0.05;
-        // mj_data_->qpos[1] = 0;
-        // mj_data_->qpos[2] = 0.4;
-
         // Inject IMU state
         if (have_frame_sensor_)
         {
@@ -98,7 +80,7 @@ void UnitreeSdk2Bridge::LowStateHandler(const void *msg)
     }
 }
 
-void UnitreeSdk2Bridge::HighStateHandler(const void *msg)
+void MujocoExtractor::HighStateHandler(const void *msg)
 {
     const unitree_go::msg::dds_::SportModeState_ *state = (const unitree_go::msg::dds_::SportModeState_ *)msg;
 
@@ -116,7 +98,7 @@ void UnitreeSdk2Bridge::HighStateHandler(const void *msg)
     }
 }
 
-void UnitreeSdk2Bridge::Run()
+void MujocoExtractor::Run()
 {
     while (1)
     {
@@ -124,7 +106,7 @@ void UnitreeSdk2Bridge::Run()
     }
 }
 
-void UnitreeSdk2Bridge::CheckSensor()
+void MujocoExtractor::CheckSensor()
 {
     num_motor_ = mj_model_->nu;
 

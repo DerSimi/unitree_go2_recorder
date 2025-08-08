@@ -28,7 +28,7 @@
 #include "mujoco/glfw_adapter.h"
 #include "mujoco/simulate.h"
 #include "mujoco/array_safety.h"
-#include "unitree_sdk2_bridge/unitree_sdk2_bridge.h"
+#include "extractor/extractor.h"
 #include <pthread.h>
 
 extern "C"
@@ -224,8 +224,8 @@ namespace
               sim.speed_changed = false;
 
               // run single step, let next iteration deal with timing
-              // mj_step(m, d);
-              mj_forward(m, d);
+              mj_step(m, d);
+              // mj_forward(m, d);
               stepped = true;
             }
 
@@ -250,8 +250,8 @@ namespace
                 }
 
                 // call mj_step
-                // mj_step(m, d);
-                mj_forward(m, d);
+                mj_step(m, d);
+                // mj_forward(m, d);
                 stepped = true;
 
                 // break if reset
@@ -296,6 +296,15 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
     if (d)
     {
       sim->Load(m, d, filename);
+
+      // Set camera to track the robot's base_link, comment out this block to disable camera tracking
+      int body_id = mj_name2id(m, mjOBJ_BODY, "base_link");
+      if (body_id != -1) {
+        sim->cam.type = mjCAMERA_TRACKING;
+        sim->cam.trackbodyid = body_id;
+        sim->cam.distance = 3.0;
+      }
+
       mj_forward(m, d);
     }
     else
@@ -327,7 +336,7 @@ void *UnitreeSdk2BridgeThread(void *arg)
   }
 
   ChannelFactory::Instance()->Init(1, "lo");
-  UnitreeSdk2Bridge unitree_interface(m, d);
+  MujocoExtractor unitree_interface(m, d);
 
   unitree_interface.Run();
 

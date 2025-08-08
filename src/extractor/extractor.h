@@ -24,11 +24,11 @@ using namespace std;
 #define TOPIC_LOWCMD "rt/lowcmd"
 #define MOTOR_SENSOR_NUM 3
 
-class UnitreeSdk2Bridge
+class MujocoExtractor
 {
 public:
-    UnitreeSdk2Bridge(mjModel *model, mjData *data);
-    ~UnitreeSdk2Bridge();
+    MujocoExtractor(mjModel *model, mjData *data);
+    ~MujocoExtractor();
 
     void LowCmdGoHandler(const void *msg);
     void LowStateHandler(const void *msg);
