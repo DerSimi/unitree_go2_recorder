@@ -31,11 +31,11 @@ void MujocoExtractor::LowCmdGoHandler(const void *msg)
     }
 }
 
-// nu ctrl dimension
-// nq qpos dimension
-// nv qvel dimension
-
 /*
+nu ctrl dimension
+nq qpos dimension
+nv qvel dimension
+
 12 Motoren, also ctrl = 12
 
 qpos dim ist 19:
