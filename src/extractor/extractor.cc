@@ -84,8 +84,9 @@ void MujocoExtractor::HighStateHandler(const void *msg)
 {
     const unitree_go::msg::dds_::SportModeState_ *state = (const unitree_go::msg::dds_::SportModeState_ *)msg;
 
-    //Inject position and velocity into mujoco data
-    if(mj_data_ && have_frame_sensor_) {
+    // Inject position and velocity into mujoco data
+    if (mj_data_ && have_frame_sensor_)
+    {
         // position
         mj_data_->qpos[0] = state->position()[0];
         mj_data_->qpos[1] = state->position()[1];
@@ -109,13 +110,11 @@ void MujocoExtractor::Run()
 void MujocoExtractor::CheckSensor()
 {
     num_motor_ = mj_model_->nu;
-
-    std::cout << "num_motor_: " << num_motor_ << std::endl;
-
-    std::cout << "mj_model_->qpos dim: " << mj_model_->nq << std::endl;
-    std::cout << "mj_model_->qvel dim: " << mj_model_->nv << std::endl;
-
     dim_motor_sensor_ = MOTOR_SENSOR_NUM * num_motor_;
+
+    cout << "num motors: " << num_motor_ << endl;
+    cout << "qpos dim: " << mj_model_->nq << endl;
+    cout << "qvel dim: " << mj_model_->nv << endl;
 
     for (int i = dim_motor_sensor_; i < mj_model_->nsensor; i++)
     {

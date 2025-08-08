@@ -23,13 +23,16 @@
 #include <new>
 #include <string>
 #include <thread>
+#include <signal.h>
 
 #include <mujoco/mujoco.h>
+#include <pthread.h>
+
 #include "mujoco/glfw_adapter.h"
 #include "mujoco/simulate.h"
 #include "mujoco/array_safety.h"
 #include "extractor/extractor.h"
-#include <pthread.h>
+#include "storage/storage_handler.h"
 
 extern "C"
 {
@@ -225,7 +228,6 @@ namespace
 
               // run single step, let next iteration deal with timing
               mj_step(m, d);
-              // mj_forward(m, d);
               stepped = true;
             }
 
@@ -251,7 +253,6 @@ namespace
 
                 // call mj_step
                 mj_step(m, d);
-                // mj_forward(m, d);
                 stepped = true;
 
                 // break if reset

@@ -1,18 +1,12 @@
-#ifndef UNITREE_SDK2_BRIDGE_H
-#define UNITREE_SDK2_BRIDGE_H
+#pragma once
 
 #include <iostream>
-#include <chrono>
-#include <cstring>
 
-#include <unitree/robot/channel/channel_publisher.hpp>
 #include <unitree/robot/channel/channel_subscriber.hpp>
 #include <unitree/idl/go2/SportModeState_.hpp>
-#include <unitree/idl/go2/WirelessController_.hpp>
 #include <unitree/idl/go2/LowState_.hpp>
 #include <unitree/idl/go2/LowCmd_.hpp>
-#include <unitree/idl/hg/LowCmd_.hpp>
-#include <unitree/idl/hg/LowState_.hpp>
+
 #include <mujoco/mujoco.h>
 
 using namespace unitree::common;
@@ -35,6 +29,8 @@ public:
     void HighStateHandler(const void *msg);
 
     void Run();
+
+private:
     void CheckSensor();
 
     ChannelSubscriberPtr<unitree_go::msg::dds_::LowCmd_> low_cmd_suber_;
@@ -50,5 +46,3 @@ public:
     int have_imu_ = false;
     int have_frame_sensor_ = false;
 };
-
-#endif
