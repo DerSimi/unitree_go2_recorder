@@ -267,7 +267,8 @@ namespace
               sim.speed_changed = false;
 
               // run single step, let next iteration deal with timing
-              mj_step(m, d);
+              // mj_step(m, d);
+              mj_forward(m, d);
               stepped = true;
             }
 
@@ -308,7 +309,8 @@ namespace
                 }
 
                 // call mj_step
-                mj_step(m, d);
+                // mj_step(m, d);
+                mj_forward(m, d);
                 stepped = true;
 
                 // break if reset
@@ -394,10 +396,10 @@ void *UnitreeSdk2BridgeThread(void *arg)
   ChannelFactory::Instance()->Init(config.domain_id, config.interface);
   UnitreeSdk2Bridge unitree_interface(m, d);
 
-  if (config.print_scene_information == 1)
-  {
-    unitree_interface.PrintSceneInformation();
-  }
+  // if (config.print_scene_information == 1)
+  // {
+  //   unitree_interface.PrintSceneInformation();
+  // }
 
   unitree_interface.Run();
 
