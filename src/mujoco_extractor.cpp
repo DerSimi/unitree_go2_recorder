@@ -30,7 +30,6 @@
 #include "mujoco/array_safety.h"
 #include "unitree_sdk2_bridge/unitree_sdk2_bridge.h"
 #include <pthread.h>
-#include "yaml-cpp/yaml.h"
 
 extern "C"
 {
@@ -51,21 +50,6 @@ namespace
   // model and data
   mjModel *m = nullptr;
   mjData *d = nullptr;
-
-  // control noise variables
-  mjtNum *ctrlnoise = nullptr;
-
-  struct SimulationConfig
-  {
-    int domain_id = 1;
-    std::string interface = "lo";
-
-    int print_scene_information = 1;
-
-    int enable_elastic_band = 0;
-    int band_attached_link = 0;
-
-  } config;
 
   using Seconds = std::chrono::duration<double>;
 
@@ -161,11 +145,6 @@ namespace
           m = mnew;
           d = dnew;
           mj_forward(m, d);
-
-          // allocate ctrlnoise
-          free(ctrlnoise);
-          ctrlnoise = (mjtNum *)malloc(sizeof(mjtNum) * m->nu);
-          mju_zero(ctrlnoise, m->nu);
         }
         else
         {
@@ -191,11 +170,6 @@ namespace
           m = mnew;
           d = dnew;
           mj_forward(m, d);
-
-          // allocate ctrlnoise
-          free(ctrlnoise);
-          ctrlnoise = static_cast<mjtNum *>(malloc(sizeof(mjtNum) * m->nu));
-          mju_zero(ctrlnoise, m->nu);
         }
         else
         {
@@ -232,23 +206,6 @@ namespace
             // elapsed CPU and simulation time since last sync
             const auto elapsedCPU = startCPU - syncCPU;
             double elapsedSim = d->time - syncSim;
-
-            // inject noise
-            if (sim.ctrl_noise_std)
-            {
-              // convert rate and scale to discrete time (Ornstein–Uhlenbeck)
-              mjtNum rate = mju_exp(-m->opt.timestep / mju_max(sim.ctrl_noise_rate, mjMINVAL));
-              mjtNum scale = sim.ctrl_noise_std * mju_sqrt(1 - rate * rate);
-
-              for (int i = 0; i < m->nu; i++)
-              {
-                // update noise
-                ctrlnoise[i] = rate * ctrlnoise[i] + scale * mju_standardNormal(nullptr);
-
-                // apply noise
-                d->ctrl[i] = ctrlnoise[i];
-              }
-            }
 
             // requested slow-down factor
             double slowdown = 100 / sim.percentRealTime[sim.real_time_index];
@@ -290,22 +247,6 @@ namespace
                   sim.measured_slowdown =
                       std::chrono::duration<double>(elapsedCPU).count() / elapsedSim;
                   measured = true;
-                }
-
-                // elastic band on base link
-                if (sim.use_elastic_band_ == 1)
-                {
-                  if (sim.elastic_band_.enable_)
-                  {
-                    vector<double> x = {d->qpos[0], d->qpos[1], d->qpos[2]};
-                    vector<double> dx = {d->qvel[0], d->qvel[1], d->qvel[2]};
-
-                    sim.elastic_band_.Advance(x, dx);
-
-                    d->xfrc_applied[config.band_attached_link] = sim.elastic_band_.f_[0];
-                    d->xfrc_applied[config.band_attached_link + 1] = sim.elastic_band_.f_[1];
-                    d->xfrc_applied[config.band_attached_link + 2] = sim.elastic_band_.f_[2];
-                  }
                 }
 
                 // call mj_step
@@ -356,11 +297,6 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
     {
       sim->Load(m, d, filename);
       mj_forward(m, d);
-
-      // allocate ctrlnoise
-      free(ctrlnoise);
-      ctrlnoise = static_cast<mjtNum *>(malloc(sizeof(mjtNum) * m->nu));
-      mju_zero(ctrlnoise, m->nu);
     }
     else
     {
@@ -371,7 +307,6 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
   PhysicsLoop(*sim);
 
   // delete everything we allocated
-  free(ctrlnoise);
   mj_deleteData(d);
   mj_deleteModel(m);
 
@@ -391,15 +326,8 @@ void *UnitreeSdk2BridgeThread(void *arg)
     usleep(500000);
   }
 
-  config.band_attached_link = 6 * mj_name2id(m, mjOBJ_BODY, "base_link");
-
-  ChannelFactory::Instance()->Init(config.domain_id, config.interface);
+  ChannelFactory::Instance()->Init(1, "lo");
   UnitreeSdk2Bridge unitree_interface(m, d);
-
-  // if (config.print_scene_information == 1)
-  // {
-  //   unitree_interface.PrintSceneInformation();
-  // }
 
   unitree_interface.Run();
 
@@ -430,16 +358,6 @@ int main(int argc, char **argv)
   auto sim = std::make_unique<mj::Simulate>(
       std::make_unique<mj::GlfwAdapter>(),
       &cam, &opt, &pert, /* is_passive = */ false);
-
-  // Load simulation configuration
-  YAML::Node yaml_node = YAML::LoadFile("../config.yaml");
-  config.domain_id = yaml_node["domain_id"].as<int>();
-  config.interface = yaml_node["interface"].as<std::string>();
-  config.print_scene_information = yaml_node["print_scene_information"].as<int>();
-  config.enable_elastic_band = yaml_node["enable_elastic_band"].as<int>();
-
-  sim->use_elastic_band_ = config.enable_elastic_band;
-  yaml_node.~Node();
 
   const char *filename = "../model/scene.xml";
 
