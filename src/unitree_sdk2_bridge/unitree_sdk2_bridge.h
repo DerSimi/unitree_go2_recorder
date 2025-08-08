@@ -20,11 +20,9 @@ using namespace unitree::robot;
 using namespace std;
 
 #define TOPIC_LOWSTATE "rt/lowstate"
-// #define TOPIC_HIGHSTATE "rt/sportmodestate"
+#define TOPIC_HIGHSTATE "rt/sportmodestate"
 #define TOPIC_LOWCMD "rt/lowcmd"
 #define MOTOR_SENSOR_NUM 3
-#define NUM_MOTOR_IDL_GO 20
-#define NUM_MOTOR_IDL_HG 35
 
 class UnitreeSdk2Bridge
 {
@@ -33,26 +31,15 @@ public:
     ~UnitreeSdk2Bridge();
 
     void LowCmdGoHandler(const void *msg);
-
     void LowStateHandler(const void *msg);
+    void HighStateHandler(const void *msg);
 
-    // void PublishLowStateGo();
-    // void PublishHighState();
     void Run();
-    // void PrintSceneInformation();
     void CheckSensor();
 
-    ChannelSubscriberPtr<unitree_go::msg::dds_::LowCmd_> low_cmd_go_suber_;
-    ChannelSubscriberPtr<unitree_go::msg::dds_::LowState_> low_state_go_suber_;
-
-    unitree_go::msg::dds_::LowState_ low_state_go_{};
-    unitree_go::msg::dds_::SportModeState_ high_state_{};
-
-    // ChannelPublisherPtr<unitree_go::msg::dds_::LowState_> low_state_go_puber_;
-    // ChannelPublisherPtr<unitree_go::msg::dds_::SportModeState_> high_state_puber_;
-
-    // ThreadPtr lowStatePuberThreadPtr;
-    // ThreadPtr HighStatePuberThreadPtr;
+    ChannelSubscriberPtr<unitree_go::msg::dds_::LowCmd_> low_cmd_suber_;
+    ChannelSubscriberPtr<unitree_go::msg::dds_::LowState_> low_state_suber_;
+    ChannelSubscriberPtr<unitree_go::msg::dds_::SportModeState_> high_state_suber_;
 
     mjData *mj_data_;
     mjModel *mj_model_;
