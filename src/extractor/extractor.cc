@@ -93,13 +93,13 @@ void MujocoExtractor::LowStateHandler(const void *msg)
             data.base_quat[3] = mj_data_->qpos[6];
 
             // Angular velocity
-            mj_data_->qvel[0] = state->imu_state().gyroscope()[0];
-            mj_data_->qvel[1] = state->imu_state().gyroscope()[1];
-            mj_data_->qvel[2] = state->imu_state().gyroscope()[2];
+            mj_data_->qvel[3] = state->imu_state().gyroscope()[0];
+            mj_data_->qvel[4] = state->imu_state().gyroscope()[1];
+            mj_data_->qvel[5] = state->imu_state().gyroscope()[2];
 
-            data.base_ang_vel[0] = mj_data_->qvel[0];
-            data.base_ang_vel[1] = mj_data_->qvel[1];
-            data.base_ang_vel[2] = mj_data_->qvel[2];
+            data.base_ang_vel[0] = mj_data_->qvel[3];
+            data.base_ang_vel[1] = mj_data_->qvel[4];
+            data.base_ang_vel[2] = mj_data_->qvel[5];
 
             // Linear velocity is not in here, only acceleration!!!
         }
@@ -176,7 +176,9 @@ void MujocoExtractor::HighStateHandler(const void *msg)
     }
 }
 
-bool MujocoExtractor::GetSynchronizedState(mjData *data, double& out_timestamp)
+// Synchronization logic: First choose the oldest low cmd entry, and then choose the corresponding high
+// and low state entry which is closed to it, but NOT newer!
+bool MujocoExtractor::GetSynchronizedState(mjData *data, double &out_timestamp)
 {
     std::lock_guard<std::mutex> lock(mtx_);
 
@@ -213,9 +215,36 @@ bool MujocoExtractor::GetSynchronizedState(mjData *data, double& out_timestamp)
     // ...
     // Insert data
 
+    // Base position and orientation
+    mj_data_->qpos[0] = match_high_state.base_pos[0];
+    mj_data_->qpos[1] = match_high_state.base_pos[1];
+    mj_data_->qpos[2] = match_high_state.base_pos[2];
+
+    mj_data_->qpos[3] = match_low_state.base_quat[0];
+    mj_data_->qpos[4] = match_low_state.base_quat[1];
+    mj_data_->qpos[5] = match_low_state.base_quat[2];
+    mj_data_->qpos[6] = match_low_state.base_quat[3];
+
+    // Base linear and angular velocity
+    mj_data_->qvel[0] = match_high_state.base_lin_vel[0];
+    mj_data_->qvel[1] = match_high_state.base_lin_vel[1];
+    mj_data_->qvel[2] = match_high_state.base_lin_vel[2];
+
+    mj_data_->qvel[3] = match_low_state.base_ang_vel[0];
+    mj_data_->qvel[4] = match_low_state.base_ang_vel[1];
+    mj_data_->qvel[5] = match_low_state.base_ang_vel[2];
+
+    // Motor angle, velocity and control
+    for (int i = 0; i < num_motor_; i++)
+    {
+            mj_data_->qpos[7 + i] = match_low_state.qpos_joints[i];
+            mj_data_->qvel[6 + i] = match_low_state.qvel_joints[i];
+            mj_data_->ctrl[i] = ref_low_cmd.ctrl[i];
+    }
+
     out_timestamp = T_ref;
     low_cmd_buffer_.pop_front();
-    
+
     high_state_buffer_.erase(high_state_buffer_.begin(), it_high.base() - 1);
     low_state_buffer_.erase(low_state_buffer_.begin(), it_low.base() - 1);
 
