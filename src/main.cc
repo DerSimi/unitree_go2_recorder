@@ -123,63 +123,9 @@ namespace
     std::chrono::time_point<mj::Simulate::Clock> syncCPU;
     mjtNum syncSim = 0;
 
-    // ChannelFactory::Instance()->Init(0);
-    // UnitreeDds ud(d);
-
     // run until asked to exit
     while (!sim.exitrequest.load())
     {
-      if (sim.droploadrequest.load())
-      {
-        sim.LoadMessage(sim.dropfilename);
-        mjModel *mnew = LoadModel(sim.dropfilename, sim);
-        sim.droploadrequest.store(false);
-
-        mjData *dnew = nullptr;
-        if (mnew)
-          dnew = mj_makeData(mnew);
-        if (dnew)
-        {
-          sim.Load(mnew, dnew, sim.dropfilename);
-
-          mj_deleteData(d);
-          mj_deleteModel(m);
-
-          m = mnew;
-          d = dnew;
-          mj_forward(m, d);
-        }
-        else
-        {
-          sim.LoadMessageClear();
-        }
-      }
-
-      if (sim.uiloadrequest.load())
-      {
-        sim.uiloadrequest.fetch_sub(1);
-        sim.LoadMessage(sim.filename);
-        mjModel *mnew = LoadModel(sim.filename, sim);
-        mjData *dnew = nullptr;
-        if (mnew)
-          dnew = mj_makeData(mnew);
-        if (dnew)
-        {
-          sim.Load(mnew, dnew, sim.filename);
-
-          mj_deleteData(d);
-          mj_deleteModel(m);
-
-          m = mnew;
-          d = dnew;
-          mj_forward(m, d);
-        }
-        else
-        {
-          sim.LoadMessageClear();
-        }
-      }
-
       // sleep for 1 ms or yield, to let main thread run
       //  yield results in busy wait - which has better timing but kills battery life
       if (sim.run && sim.busywait)
@@ -288,7 +234,7 @@ namespace
 void PhysicsThread(mj::Simulate *sim, const char *filename)
 {
   // request loadmodel if file given (otherwise drag-and-drop)
-  
+
   if (filename != nullptr)
   {
     sim->LoadMessage(filename);
@@ -301,7 +247,8 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
 
       // Set camera to track the robot's base_link, comment out this block to disable camera tracking
       int body_id = mj_name2id(m, mjOBJ_BODY, "base_link");
-      if (body_id != -1) {
+      if (body_id != -1)
+      {
         sim->cam.type = mjCAMERA_TRACKING;
         sim->cam.trackbodyid = body_id;
         sim->cam.distance = 3.0;
