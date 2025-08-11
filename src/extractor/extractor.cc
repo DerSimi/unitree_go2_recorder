@@ -115,8 +115,8 @@ void MujocoExtractor::LowStateHandler(const void *msg)
             data.qpos_joints[i] = mj_data_->qpos[7 + i];
 
             // angular velocity
-            mj_data_->qvel[7 + i] = state->motor_state()[i].dq();
-            data.qvel_joints[i] = mj_data_->qvel[7 + i];
+            mj_data_->qvel[6 + i] = state->motor_state()[i].dq();
+            data.qvel_joints[i] = mj_data_->qvel[6 + i];
         }
 
         // Lock mutex and write into buffer
@@ -174,6 +174,52 @@ void MujocoExtractor::HighStateHandler(const void *msg)
             }
         } // Free mutex
     }
+}
+
+bool MujocoExtractor::GetSynchronizedState(mjData *data, double& out_timestamp)
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+
+    // We use low cmd buffer as base, as it contains the most data
+    if (low_cmd_buffer_.empty())
+    {
+        return false;
+    }
+
+    const auto &ref_low_cmd = low_cmd_buffer_.front();
+    double T_ref = ref_low_cmd.timestamp;
+
+    auto it_high = high_state_buffer_.rbegin();
+    while (it_high != high_state_buffer_.rend() && it_high->timestamp > T_ref)
+    {
+        ++it_high;
+    }
+
+    auto it_low = low_state_buffer_.rbegin();
+    while (it_low != low_state_buffer_.rend() && it_low->timestamp > T_ref)
+    {
+        ++it_low;
+    }
+
+    if (it_high == high_state_buffer_.rend() || it_low == low_state_buffer_.rend())
+    {
+        low_cmd_buffer_.pop_front();
+        return false;
+    }
+
+    const auto &match_high_state = *it_high;
+    const auto &match_low_state = *it_low;
+
+    // ...
+    // Insert data
+
+    out_timestamp = T_ref;
+    low_cmd_buffer_.pop_front();
+    
+    high_state_buffer_.erase(high_state_buffer_.begin(), it_high.base() - 1);
+    low_state_buffer_.erase(low_state_buffer_.begin(), it_low.base() - 1);
+
+    return true;
 }
 
 void MujocoExtractor::Run()

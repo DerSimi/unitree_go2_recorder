@@ -21,7 +21,8 @@ using namespace std;
 #define MOTOR_SENSOR_NUM 3
 #define SYNC_BUFFER_MAX_SIZE 100
 
-struct LowStateData {
+struct LowStateData
+{
     double timestamp;
     std::vector<mjtNum> qpos_joints; // 12 joint angles
     std::vector<mjtNum> qvel_joints; // 12 joint velocities
@@ -29,13 +30,15 @@ struct LowStateData {
     mjtNum base_ang_vel[3];          // base angular velocity
 };
 
-struct HighStateData {
+struct HighStateData
+{
     double timestamp;
     mjtNum base_pos[3];     // base position
     mjtNum base_lin_vel[3]; // base linear velocity
 };
 
-struct LowCmdData {
+struct LowCmdData
+{
     double timestamp;
     std::vector<mjtNum> ctrl; // 12 control commands
 };
@@ -49,6 +52,7 @@ public:
     void LowCmdHandler(const void *msg);
     void LowStateHandler(const void *msg);
     void HighStateHandler(const void *msg);
+    bool GetSynchronizedState(mjData *data, double &out_timestamp);
 
     void Run();
 
