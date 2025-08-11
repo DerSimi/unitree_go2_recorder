@@ -117,7 +117,7 @@ namespace
   }
 
   // simulate in background thread (while rendering in main thread)
-  void PhysicsLoop(mj::Simulate &sim)
+  void PhysicsLoop(mj::Simulate &sim, StorageHandler &handler)
   {
     // cpu-sim syncronization point
     std::chrono::time_point<mj::Simulate::Clock> syncCPU;
@@ -266,7 +266,7 @@ namespace
             // save current state to history buffer
             if (stepped)
             {
-              sim.AddToHistory();
+              handler.addState(d);
             }
           }
 
@@ -288,6 +288,7 @@ namespace
 void PhysicsThread(mj::Simulate *sim, const char *filename)
 {
   // request loadmodel if file given (otherwise drag-and-drop)
+  
   if (filename != nullptr)
   {
     sim->LoadMessage(filename);
@@ -314,7 +315,14 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
     }
   }
 
-  PhysicsLoop(*sim);
+  StorageHandler storage_handler(m->nq, m->nv, m->nu);
+
+  PhysicsLoop(*sim, storage_handler);
+
+  cout << "Physics thread exiting..." << endl;
+
+  // store data
+  storage_handler.storeData();
 
   // delete everything we allocated
   mj_deleteData(d);

@@ -17,7 +17,7 @@ void StorageHandler::addState(const mjData *mj_data)
     data_.insert(data_.end(), mj_data->ctrl, mj_data->ctrl + nu_);
 }
 
-void StorageHandler::storeData(int sig)
+void StorageHandler::storeData()
 {
     cout << "Writing data to file..." << endl;
     // Write data to file

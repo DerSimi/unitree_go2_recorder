@@ -15,6 +15,7 @@ private:
     int nv_;
     int nu_;
     std::vector<mjtNum> data_;
+    std::vector<long> time_;
 public:
     StorageHandler(int nq, int nv, int nu);
     ~StorageHandler();
@@ -23,5 +24,5 @@ public:
     void addState(const mjData *data);
 
     // write data to file
-    void storeData(int sig);
+    void storeData();
 };
