@@ -54,6 +54,9 @@ namespace
   mjModel *m = nullptr;
   mjData *d = nullptr;
 
+  // NEU: Extractor-Instanz, die von beiden Threads genutzt wird
+  std::unique_ptr<MujocoExtractor> unitree_interface;
+
   using Seconds = std::chrono::duration<double>;
 
   //------------------------------------------- simulation -------------------------------------------
@@ -119,15 +122,27 @@ namespace
   // simulate in background thread (while rendering in main thread)
   void PhysicsLoop(mj::Simulate &sim, StorageHandler &handler)
   {
-    // cpu-sim syncronization point
-    std::chrono::time_point<mj::Simulate::Clock> syncCPU;
-    mjtNum syncSim = 0;
-
     // run until asked to exit
     while (!sim.exitrequest.load())
     {
+      // Prüfen, ob der Extractor initialisiert ist
+      if (unitree_interface)
+      {
+        double timestamp;
+        // Versuche, einen neuen, synchronisierten Zustand zu bekommen
+        if (unitree_interface->GetSynchronizedState(timestamp))
+        {
+          const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
+
+          handler.addState(d, timestamp);
+
+          mj_forward(m, d);
+
+          sim.speed_changed = true;
+        }
+      }
+
       // sleep for 1 ms or yield, to let main thread run
-      //  yield results in busy wait - which has better timing but kills battery life
       if (sim.run && sim.busywait)
       {
         std::this_thread::yield();
@@ -136,95 +151,6 @@ namespace
       {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
-
-      {
-        // lock the sim mutex
-        const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
-
-        // run only if model is present
-        if (m)
-        {
-          // running
-          if (sim.run)
-          {
-            bool stepped = false;
-
-            // record cpu time at start of iteration
-            const auto startCPU = mj::Simulate::Clock::now();
-
-            // elapsed CPU and simulation time since last sync
-            const auto elapsedCPU = startCPU - syncCPU;
-            double elapsedSim = d->time - syncSim;
-
-            // requested slow-down factor
-            double slowdown = 100 / sim.percentRealTime[sim.real_time_index];
-
-            // misalignment condition: distance from target sim time is bigger than syncmisalign
-            bool misaligned =
-                mju_abs(Seconds(elapsedCPU).count() / slowdown - elapsedSim) > syncMisalign;
-
-            // out-of-sync (for any reason): reset sync times, step
-            if (elapsedSim < 0 || elapsedCPU.count() < 0 || syncCPU.time_since_epoch().count() == 0 ||
-                misaligned || sim.speed_changed)
-            {
-              // re-sync
-              syncCPU = startCPU;
-              syncSim = d->time;
-              sim.speed_changed = false;
-
-              // run single step, let next iteration deal with timing
-              mj_step(m, d);
-              stepped = true;
-            }
-
-            // in-sync: step until ahead of cpu
-            else
-            {
-              bool measured = false;
-              mjtNum prevSim = d->time;
-
-              double refreshTime = simRefreshFraction / sim.refresh_rate;
-
-              // step while sim lags behind cpu and within refreshTime
-              while (Seconds((d->time - syncSim) * slowdown) < mj::Simulate::Clock::now() - syncCPU &&
-                     mj::Simulate::Clock::now() - startCPU < Seconds(refreshTime))
-              {
-                // measure slowdown before first step
-                if (!measured && elapsedSim)
-                {
-                  sim.measured_slowdown =
-                      std::chrono::duration<double>(elapsedCPU).count() / elapsedSim;
-                  measured = true;
-                }
-
-                // call mj_step
-                mj_step(m, d);
-                stepped = true;
-
-                // break if reset
-                if (d->time < prevSim)
-                {
-                  break;
-                }
-              }
-            }
-
-            // save current state to history buffer
-            if (stepped)
-            {
-              handler.addState(d);
-            }
-          }
-
-          // paused
-          else
-          {
-            // run mj_forward, to update rendering and joint sliders
-            mj_forward(m, d);
-            sim.speed_changed = true;
-          }
-        }
-      } // release std::lock_guard<std::mutex>
     }
   }
 } // namespace
@@ -292,9 +218,11 @@ void *UnitreeSdk2BridgeThread(void *arg)
   }
 
   ChannelFactory::Instance()->Init(1, "lo");
-  MujocoExtractor unitree_interface(m, d);
+  
+  // NEU: Initialisiere die globale Instanz
+  unitree_interface = std::make_unique<MujocoExtractor>(m, d);
 
-  unitree_interface.Run();
+  unitree_interface->Run();
 
   pthread_exit(NULL);
 }

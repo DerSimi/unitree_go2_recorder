@@ -21,7 +21,7 @@ public:
     ~StorageHandler();
 
     // add mujoco state to the storage buffer
-    void addState(const mjData *data, double time = 0.0);
+    void addState(const mjData *data, double timestamp = 0.0);
 
     // write data to file
     void storeData();
