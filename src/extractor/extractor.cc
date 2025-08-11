@@ -31,10 +31,9 @@ void MujocoExtractor::LowCmdHandler(const void *msg)
 
         for (int i = 0; i < num_motor_; i++)
         {
-            mj_data_->ctrl[i] = cmd->motor_cmd()[i].tau() +
-                                cmd->motor_cmd()[i].kp() * (cmd->motor_cmd()[i].q() - mj_data_->sensordata[i]) +
-                                cmd->motor_cmd()[i].kd() * (cmd->motor_cmd()[i].dq() - mj_data_->sensordata[i + num_motor_]);
-            data.ctrl[i] = mj_data_->ctrl[i];
+            data.ctrl[i] = cmd->motor_cmd()[i].tau() +
+                           cmd->motor_cmd()[i].kp() * (cmd->motor_cmd()[i].q() - mj_data_->sensordata[i]) +
+                           cmd->motor_cmd()[i].kd() * (cmd->motor_cmd()[i].dq() - mj_data_->sensordata[i + num_motor_]);
         }
 
         // Lock mutex and write into buffer
@@ -82,24 +81,15 @@ void MujocoExtractor::LowStateHandler(const void *msg)
         if (have_frame_sensor_)
         {
             // Rotation quaternion
-            mj_data_->qpos[3] = state->imu_state().quaternion()[0];
-            mj_data_->qpos[4] = state->imu_state().quaternion()[1];
-            mj_data_->qpos[5] = state->imu_state().quaternion()[2];
-            mj_data_->qpos[6] = state->imu_state().quaternion()[3];
-
-            data.base_quat[0] = mj_data_->qpos[3];
-            data.base_quat[1] = mj_data_->qpos[4];
-            data.base_quat[2] = mj_data_->qpos[5];
-            data.base_quat[3] = mj_data_->qpos[6];
+            data.base_quat[0] = state->imu_state().quaternion()[0];
+            data.base_quat[1] = state->imu_state().quaternion()[1];
+            data.base_quat[2] = state->imu_state().quaternion()[2];
+            data.base_quat[3] = state->imu_state().quaternion()[3];
 
             // Angular velocity
-            mj_data_->qvel[3] = state->imu_state().gyroscope()[0];
-            mj_data_->qvel[4] = state->imu_state().gyroscope()[1];
-            mj_data_->qvel[5] = state->imu_state().gyroscope()[2];
-
-            data.base_ang_vel[0] = mj_data_->qvel[3];
-            data.base_ang_vel[1] = mj_data_->qvel[4];
-            data.base_ang_vel[2] = mj_data_->qvel[5];
+            data.base_ang_vel[0] = state->imu_state().gyroscope()[0];
+            data.base_ang_vel[1] = state->imu_state().gyroscope()[1];
+            data.base_ang_vel[2] = state->imu_state().gyroscope()[2];
 
             // Linear velocity is not in here, only acceleration!!!
         }
@@ -111,12 +101,10 @@ void MujocoExtractor::LowStateHandler(const void *msg)
         for (int i = 0; i < num_motor_; i++)
         {
             // angle
-            mj_data_->qpos[7 + i] = state->motor_state()[i].q();
-            data.qpos_joints[i] = mj_data_->qpos[7 + i];
+            data.qpos_joints[i] = state->motor_state()[i].q();
 
             // angular velocity
-            mj_data_->qvel[6 + i] = state->motor_state()[i].dq();
-            data.qvel_joints[i] = mj_data_->qvel[6 + i];
+            data.qvel_joints[i] = state->motor_state()[i].dq();
         }
 
         // Lock mutex and write into buffer
@@ -146,22 +134,14 @@ void MujocoExtractor::HighStateHandler(const void *msg)
         data.timestamp = timestamp;
 
         // position
-        mj_data_->qpos[0] = state->position()[0];
-        mj_data_->qpos[1] = state->position()[1];
-        mj_data_->qpos[2] = state->position()[2];
-
-        data.base_pos[0] = mj_data_->qpos[0];
-        data.base_pos[1] = mj_data_->qpos[1];
-        data.base_pos[2] = mj_data_->qpos[2];
+        data.base_pos[0] = state->position()[0];
+        data.base_pos[1] = state->position()[1];
+        data.base_pos[2] = state->position()[2];
 
         // velocity
-        mj_data_->qvel[0] = state->velocity()[0];
-        mj_data_->qvel[1] = state->velocity()[1];
-        mj_data_->qvel[2] = state->velocity()[2];
-
-        data.base_lin_vel[0] = mj_data_->qvel[0];
-        data.base_lin_vel[1] = mj_data_->qvel[1];
-        data.base_lin_vel[2] = mj_data_->qvel[2];
+        data.base_lin_vel[0] = state->velocity()[0];
+        data.base_lin_vel[1] = state->velocity()[1];
+        data.base_lin_vel[2] = state->velocity()[2];
 
         // Lock mutex and write into buffer
         {
@@ -178,8 +158,11 @@ void MujocoExtractor::HighStateHandler(const void *msg)
 
 // Synchronization logic: First choose the oldest low cmd entry, and then choose the corresponding high
 // and low state entry which is closed to it, but NOT newer!
-bool MujocoExtractor::GetSynchronizedState(mjData *data, double &out_timestamp)
+bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
 {
+    if (!mj_data_)
+        return false;
+
     std::lock_guard<std::mutex> lock(mtx_);
 
     // We use low cmd buffer as base, as it contains the most data
@@ -212,8 +195,7 @@ bool MujocoExtractor::GetSynchronizedState(mjData *data, double &out_timestamp)
     const auto &match_high_state = *it_high;
     const auto &match_low_state = *it_low;
 
-    // ...
-    // Insert data
+    // Insert data into mj_data
 
     // Base position and orientation
     mj_data_->qpos[0] = match_high_state.base_pos[0];
@@ -237,9 +219,9 @@ bool MujocoExtractor::GetSynchronizedState(mjData *data, double &out_timestamp)
     // Motor angle, velocity and control
     for (int i = 0; i < num_motor_; i++)
     {
-            mj_data_->qpos[7 + i] = match_low_state.qpos_joints[i];
-            mj_data_->qvel[6 + i] = match_low_state.qvel_joints[i];
-            mj_data_->ctrl[i] = ref_low_cmd.ctrl[i];
+        mj_data_->qpos[7 + i] = match_low_state.qpos_joints[i];
+        mj_data_->qvel[6 + i] = match_low_state.qvel_joints[i];
+        mj_data_->ctrl[i] = ref_low_cmd.ctrl[i];
     }
 
     out_timestamp = T_ref;

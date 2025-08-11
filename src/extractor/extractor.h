@@ -52,7 +52,7 @@ public:
     void LowCmdHandler(const void *msg);
     void LowStateHandler(const void *msg);
     void HighStateHandler(const void *msg);
-    bool GetSynchronizedState(mjData *data, double &out_timestamp);
+    bool GetSynchronizedState(double &out_timestamp);
 
     void Run();
 
