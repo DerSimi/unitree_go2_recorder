@@ -15,13 +15,13 @@ private:
     int nv_;
     int nu_;
     std::vector<mjtNum> data_;
-    std::vector<long> time_;
+    std::vector<double> time_;
 public:
     StorageHandler(int nq, int nv, int nu);
     ~StorageHandler();
 
     // add mujoco state to the storage buffer
-    void addState(const mjData *data);
+    void addState(const mjData *data, double time = 0.0);
 
     // write data to file
     void storeData();
