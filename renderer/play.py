@@ -25,6 +25,14 @@ ctrl = state[:, model.nq+model.nv:]
 
 print(qpos.shape, qvel.shape, ctrl.shape)
 
+print("hihi", state[:, :model.nq+model.nv].shape)
+
+state_array = rearrange(state[:, :model.nq+model.nv], 'frame posvel -> 1 frame posvel')
+action_array = rearrange(state[:, model.nq+model.nv:], 'frame ctrl -> 1 frame ctrl')
+
+print("State array shape", (state_array.shape))
+print("Action array shape", (action_array.shape))
+
 # Time management
 dt_arr = data['dt']
 print("dt mean and var:", dt_arr.mean(), dt_arr.var())
