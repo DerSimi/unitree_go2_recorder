@@ -18,6 +18,8 @@ Don't forget to install the dependencies:
 - [mujoco](https://github.com/google-deepmind/mujoco) (version 3.2.7)
 - [cnpy](https://github.com/rogersce/cnpy)
 
+> Note: This project also contains a simple robot trajectory, written with Unitree SDK, but it uses the old method: `switchGait`. If you are interested in this,
+checkout the commit `3a4680ae9b00df59e60f7e63cfb0fcc432a9d08d` in `unitree_sdk2` before installing it.  
 
 Make sure all dependencies are installed and available in your system path. Then build the project with:
 ```zsh
