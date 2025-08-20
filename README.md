@@ -78,7 +78,7 @@ For Python visualization:
 	```
 - If you want to use the sample data, copy `storage.npy` from the `samples` folder into the `build` directory first, then run the same command above.
 
-# Details on the Synchronization and Timestamp Feature
+# Details on Synchronization and Timestamp Feature
 You will notice that the recording contains a different number of messages for each relevant topic. This requires a synchronization strategy. I chose to use the topic with the most messages, which is `/lowcmd`, as the reference. The program always takes the oldest `/lowcmd` message in the buffer and searches for the closest (but not newer) messages from the other topics. 
 
 Note that the timestamps here are based on the (rather inaccurate) PC time, since there are no timestamps available in `/lowcmd` and `/lowstate`.
