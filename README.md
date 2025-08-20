@@ -17,6 +17,7 @@ Don't forget to install the dependencies:
 - [unitree_sdk2](https://github.com/unitreerobotics/unitree_sdk2)
 - [mujoco](https://github.com/google-deepmind/mujoco) (version 3.2.7)
 - [cnpy](https://github.com/rogersce/cnpy)
+- `sudo apt install libglfw3-dev libxinerama-dev libxcursor-dev libxi-dev`
 
 Important: You must build MuJoCo from source, it is not enough to install the precompiled version!
 
