@@ -39,8 +39,8 @@ target_link_libraries(mujoco_extractor
   PRIVATE ${SIM_DEPENDENCIES}
 )
 
-add_executable(circle_walk src/circle_walk.cc)
+# add_executable(circle_walk src/circle_walk.cc)
 
-target_link_libraries(circle_walk PRIVATE unitree_sdk2)
+# target_link_libraries(circle_walk PRIVATE unitree_sdk2)
 
 set(CMAKE_BUILD_TYPE Release)
