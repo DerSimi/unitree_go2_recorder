@@ -65,7 +65,12 @@ ros2 bag record /lowstate /lowcmd /sportmodestate -o recording07082
 ```
 
 Make sure you installed [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2) and properly sourced the environment, otherwise ros can't find the topic packages.
-Especially, source this file: `source ~/unitree_ros2/install/setup.sh`.
+To get the setup working, run the following commands:
+```
+source 'source ~/unitree_ros2/setup_local.sh'
+export ROS_DOMAIN_ID=1
+source ~/unitree_ros2/install/setup.sh
+```
 
 To use the sample data:
 1. Unpack the archive in the `samples` folder if needed.
@@ -78,12 +83,6 @@ To use the sample data:
 	ros2 bag play recording07082
 	```
 	The robot will walk in circles with varying gait cycles. When it sits down, close the MuJoCo renderer by hand. The program will then save `storage.npy` in the build folder. Do not use `Ctrl+C` to exit.
-    Note, again, if this results in warnings like unitree_go not found, make sure you installed [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2). To get the setup working, run the following commands:
-    ```
-    source 'source ~/unitree_ros2/setup_local.sh'
-    export ROS_DOMAIN_ID=1
-    source ~/unitree_ros2/install/setup.sh
-    ```
 
 For Python visualization:
 
