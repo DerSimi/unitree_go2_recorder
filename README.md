@@ -74,7 +74,7 @@ source ~/unitree_ros2/install/setup.sh
 
 To use the sample data:
 1. Unpack the archive in the `samples` folder if needed.
-2. Start `mujoco_extractor` in the build directory:
+2. Start `mujoco_extractor` in a seperate terminal without sourcing anything. This is only required for the rosbag part! Go to the build directory and run:
 	```zsh
 	./mujoco_extractor
 	```
