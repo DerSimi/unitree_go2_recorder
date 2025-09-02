@@ -4,9 +4,10 @@ MujocoExtractor::~MujocoExtractor()
 {
 }
 
-MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data) : mj_model_(model), mj_data_(data)
+MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helper_data) : mj_model_(model), mj_data_(data), helper_data_(helper_data)
 {
     CheckSensor();
+
     low_cmd_suber_.reset(new ChannelSubscriber<unitree_go::msg::dds_::LowCmd_>(TOPIC_LOWCMD));
     low_cmd_suber_->InitChannel(bind(&MujocoExtractor::LowCmdHandler, this, placeholders::_1), 1);
 
@@ -29,11 +30,25 @@ void MujocoExtractor::LowCmdHandler(const void *msg)
         data.timestamp = timestamp;
         data.ctrl.resize(num_motor_);
 
+        // Improve code by a single struct object if time
+        data.q.resize(num_motor_);
+        data.dq.resize(num_motor_);
+        data.tau.resize(num_motor_);
+        data.kp.resize(num_motor_);
+        data.kd.resize(num_motor_);
+
         for (int i = 0; i < num_motor_; i++)
         {
             data.ctrl[i] = cmd->motor_cmd()[i].tau() +
                            cmd->motor_cmd()[i].kp() * (cmd->motor_cmd()[i].q() - mj_data_->sensordata[i]) +
                            cmd->motor_cmd()[i].kd() * (cmd->motor_cmd()[i].dq() - mj_data_->sensordata[i + num_motor_]);
+
+            // Save additional data
+            data.q[i] = cmd->motor_cmd()[i].q();
+            data.dq[i] = cmd->motor_cmd()[i].dq();
+            data.tau[i] = cmd->motor_cmd()[i].tau();
+            data.kp[i] = cmd->motor_cmd()[i].kp();
+            data.kd[i] = cmd->motor_cmd()[i].kd();
         }
 
         // Lock mutex and write into buffer
@@ -96,6 +111,9 @@ void MujocoExtractor::LowStateHandler(const void *msg)
 
         data.qpos_joints.resize(num_motor_);
         data.qvel_joints.resize(num_motor_);
+        data.tau_est.resize(num_motor_);
+        data.q_raw.resize(num_motor_);
+        data.dq_raw.resize(num_motor_);
 
         // Inject motor state
         for (int i = 0; i < num_motor_; i++)
@@ -105,6 +123,11 @@ void MujocoExtractor::LowStateHandler(const void *msg)
 
             // angular velocity
             data.qvel_joints[i] = state->motor_state()[i].dq();
+
+            // more information to collect
+            data.tau_est[i] = state->motor_state()[i].tau_est();
+            data.q_raw[i] = state->motor_state()[i].q_raw();
+            data.dq_raw[i] = state->motor_state()[i].dq_raw();
         }
 
         // Lock mutex and write into buffer
@@ -222,6 +245,22 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
         mj_data_->qpos[7 + i] = match_low_state.qpos_joints[i];
         mj_data_->qvel[6 + i] = match_low_state.qvel_joints[i];
         mj_data_->ctrl[i] = ref_low_cmd.ctrl[i];
+    }
+
+    // Write back helper data
+    for (int i = 0; i < num_motor_; i++)
+    {
+        // Low command
+        helper_data_->q[i] = ref_low_cmd.q[i];
+        helper_data_->dq[i] = ref_low_cmd.dq[i];
+        helper_data_->tau[i] = ref_low_cmd.tau[i];
+        helper_data_->kp[i] = ref_low_cmd.kp[i];
+        helper_data_->kd[i] = ref_low_cmd.kd[i];
+
+        // Low state
+        helper_data_->tau_est[i] = match_low_state.tau_est[i];
+        helper_data_->q_raw[i] = match_low_state.q_raw[i];
+        helper_data_->dq_raw[i] = match_low_state.dq_raw[i];
     }
 
     out_timestamp = T_ref;

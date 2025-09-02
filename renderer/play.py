@@ -14,14 +14,32 @@ scene_option.flags[mujoco.mjtVisFlag.mjVIS_JOINT] = True
 # Load up the data
 data = np.load('build/storage.npy') #storage.npy has the fields: state, timestamp and dt
 state = data['state']
-state = rearrange(state, '(frame dim) -> frame dim', dim=(model.nq + model.nv + model.nu))
+state = rearrange(state, '(frame dim) -> frame dim', dim=(model.nq + model.nv + model.nu + 8 * model.nu))
 
 print("after tensor transform", state.shape)
 
-# Split into qpos, qvel, ctrl using model dimensions for robustness
-qpos = state[:, :model.nq]
-qvel = state[:, model.nq:model.nq+model.nv]
-ctrl = state[:, model.nq+model.nv:]
+# # Split into qpos, qvel, ctrl using model dimensions for robustness
+nq = model.nq
+nv = model.nv
+nu = model.nu
+
+# Indices
+i = 0
+qpos = state[:, i : i + nq]; i += nq
+qvel = state[:, i : i + nv]; i += nv
+ctrl = state[:, i : i + nu]; i += nu
+
+# From low cmd
+q      = state[:, i : i + nu]; i += nu
+dq     = state[:, i : i + nu]; i += nu
+tau    = state[:, i : i + nu]; i += nu
+kp     = state[:, i : i + nu]; i += nu
+kd     = state[:, i : i + nu]; i += nu
+
+# From low state
+tau_est = state[:, i : i + nu]; i += nu
+q_raw   = state[:, i : i + nu]; i += nu
+dq_raw  = state[:, i : i + nu]; i += nu
 
 print(qpos.shape, qvel.shape, ctrl.shape)
 

@@ -53,6 +53,7 @@ namespace
   // model and data
   mjModel *m = nullptr;
   mjData *d = nullptr;
+  helperData *helper_data = nullptr; // For collecting more data
 
   // NEU: Extractor-Instanz, die von beiden Threads genutzt wird
   std::unique_ptr<MujocoExtractor> unitree_interface;
@@ -134,7 +135,7 @@ namespace
         {
           const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
 
-          handler.addState(d, timestamp);
+          handler.addState(d, helper_data, timestamp);
 
           mj_forward(m, d);
 
@@ -218,11 +219,14 @@ void *UnitreeSdk2BridgeThread(void *arg)
   }
 
   ChannelFactory::Instance()->Init(1, "lo");
-  
+
   // NEU: Initialisiere die globale Instanz
-  unitree_interface = std::make_unique<MujocoExtractor>(m, d);
+  helper_data = new helperData(m->nu);
+  unitree_interface = std::make_unique<MujocoExtractor>(m, d, helper_data);
 
   unitree_interface->Run();
+
+  delete helper_data;
 
   pthread_exit(NULL);
 }
