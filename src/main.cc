@@ -25,6 +25,8 @@
 #include <thread>
 #include <signal.h>
 
+#include <rclcpp/rclcpp.hpp>
+
 #include <mujoco/mujoco.h>
 #include <pthread.h>
 
@@ -56,7 +58,7 @@ namespace
   helperData *helper_data = nullptr; // For collecting more data
 
   // NEU: Extractor-Instanz, die von beiden Threads genutzt wird
-  std::unique_ptr<MujocoExtractor> unitree_interface;
+  std::shared_ptr<MujocoExtractor> unitree_interface;
 
   using Seconds = std::chrono::duration<double>;
 
@@ -131,7 +133,7 @@ namespace
       {
         double timestamp;
         // Versuche, einen neuen, synchronisierten Zustand zu bekommen
-        if (unitree_interface->GetSynchronizedState(timestamp))
+        if (unitree_interface->GetSynchronizedState(timestamp, true))
         {
           const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
 
@@ -218,15 +220,24 @@ void *UnitreeSdk2BridgeThread(void *arg)
     usleep(500000);
   }
 
-  ChannelFactory::Instance()->Init(1, "lo");
-
-  // NEU: Initialisiere die globale Instanz
   helper_data = new helperData(m->nu);
-  unitree_interface = std::make_unique<MujocoExtractor>(m, d, helper_data);
 
-  unitree_interface->Run();
+  //Init ros
+  rclcpp::init(0, nullptr);
+
+  // Change queue for maximal performance (timing)
+  rclcpp::QoS qos(1); // Queue 1
+  qos.best_effort();
+
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 12);
+  
+  unitree_interface = std::make_shared<MujocoExtractor>(m, d, helper_data);
+  executor.add_node(unitree_interface);
+  executor.spin();
 
   delete helper_data;
+
+  rclcpp::shutdown();
 
   pthread_exit(NULL);
 }
