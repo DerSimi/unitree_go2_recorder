@@ -7,6 +7,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <tf2_msgs/msg/tf_message.hpp>
+#include "nav_msgs/msg/odometry.hpp"
 
 #include "unitree_go/msg/low_cmd.hpp"
 #include "unitree_go/msg/low_state.hpp"
@@ -30,12 +31,13 @@ using namespace std;
 #define TOPIC_HIGHSTATE "/sportmodestate"
 #define TOPIC_LOWCMD "/lowcmd"
 #define TOPIC_ODOMETRY "/tf"
+#define TOPIC_ODOMETRY_FILTERED "/odometry/filtered"
 
 #define MOTOR_SENSOR_NUM 3
 #define SYNC_BUFFER_MAX_SIZE 100
 
 // Enable to use odometry, the sport state is then ignored.
-#define USE_ODOMETRY true
+#define USE_ODOMETRY false
 
 struct LowStateData
 {
@@ -62,6 +64,18 @@ struct HighStateData
 {
     double timestamp;
     mjtNum base_pos[3];     // base position
+    mjtNum base_lin_vel[3]; // base linear velocity
+};
+
+struct OdometryData
+{
+    double timestamp;
+    mjtNum base_pos[3]; // base position
+};
+
+struct OdometryFilteredData
+{
+    double timestamp;
     mjtNum base_lin_vel[3]; // base linear velocity
 };
 
@@ -99,35 +113,39 @@ private:
     rclcpp::CallbackGroup::SharedPtr low_cmd_group_;
     rclcpp::CallbackGroup::SharedPtr high_state_group_;
     rclcpp::CallbackGroup::SharedPtr odometry_group_;
-    
+    rclcpp::CallbackGroup::SharedPtr odometry_filtered_group_;
+
     rclcpp::Subscription<unitree_go::msg::LowState>::SharedPtr low_state_sub_;
     rclcpp::Subscription<unitree_go::msg::LowCmd>::SharedPtr low_cmd_sub_;
     rclcpp::Subscription<unitree_go::msg::SportModeState>::SharedPtr high_state_sub_;
     rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr odometry_sub_;
-    
-    
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_filtered_sub_;
+
     std::deque<LowStateData> low_state_buffer_;
     std::deque<HighStateData> high_state_buffer_;
     std::deque<LowCmdData> low_cmd_buffer_;
-    
+    std::deque<OdometryData> odometry_buffer_;
+    std::deque<OdometryFilteredData> odometry_filtered_buffer_;
+
     std::mutex mtx_;
-    
+
     mjData *mj_data_;
     mjModel *mj_model_;
-    
+
     helperData *helper_data_;
-    
+
     int num_motor_ = 0;
     int dim_motor_sensor_ = 0;
-    
+
     int have_imu_ = false;
     int have_frame_sensor_ = false;
-    
+
     // Handler
     void lowCmdCallback(const unitree_go::msg::LowCmd::SharedPtr msg);
     void lowStateCallback(const unitree_go::msg::LowState::SharedPtr msg);
     void highStateCallback(const unitree_go::msg::SportModeState::SharedPtr msg);
     void odometryCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg);
+    void odometryFilteredCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
     void insertSynchronizedData(const LowCmdData &cmd, const LowStateData &low_state, const HighStateData &high_state);
 

@@ -15,6 +15,7 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helpe
     low_cmd_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     high_state_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     odometry_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+    odometry_filtered_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
     auto low_state_opt = rclcpp::SubscriptionOptions();
     low_state_opt.callback_group = low_state_group_;
@@ -28,25 +29,32 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helpe
     auto odom_opt = rclcpp::SubscriptionOptions();
     odom_opt.callback_group = odometry_group_;
 
+    auto odom_filtered_opt = rclcpp::SubscriptionOptions();
+    odom_filtered_opt.callback_group = odometry_filtered_group_;
+
     // Subscribe topics
     low_state_sub_ = this->create_subscription<unitree_go::msg::LowState>(
-        TOPIC_LOWSTATE, 10,
+        TOPIC_LOWSTATE, rclcpp::SensorDataQoS(),
         std::bind(&MujocoExtractor::lowStateCallback, this, std::placeholders::_1), low_state_opt);
 
     low_cmd_sub_ = this->create_subscription<unitree_go::msg::LowCmd>(
-        TOPIC_LOWCMD, 10,
+        TOPIC_LOWCMD, rclcpp::SensorDataQoS(),
         std::bind(&MujocoExtractor::lowCmdCallback, this, std::placeholders::_1), low_cmd_opt);
 
     if (USE_ODOMETRY)
     {
         odometry_sub_ = this->create_subscription<tf2_msgs::msg::TFMessage>(
-            TOPIC_ODOMETRY, 10,
+            TOPIC_ODOMETRY, rclcpp::SensorDataQoS(),
             std::bind(&MujocoExtractor::odometryCallback, this, std::placeholders::_1), odom_opt);
+
+        odometry_filtered_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+            TOPIC_ODOMETRY_FILTERED, rclcpp::SensorDataQoS(),
+            std::bind(&MujocoExtractor::odometryFilteredCallback, this, std::placeholders::_1), odom_filtered_opt);
     }
     else
     {
         high_state_sub_ = this->create_subscription<unitree_go::msg::SportModeState>(
-            TOPIC_HIGHSTATE, 10,
+            TOPIC_HIGHSTATE, rclcpp::SensorDataQoS(),
             std::bind(&MujocoExtractor::highStateCallback, this, std::placeholders::_1), high_state_opt);
     }
 
@@ -79,6 +87,7 @@ void MujocoExtractor::lowCmdCallback(const unitree_go::msg::LowCmd::SharedPtr cm
     if (mj_data_)
     {
         LowCmdData data(num_motor_);
+        data.timestamp = timestamp;
 
         for (int i = 0; i < num_motor_; i++)
         {
@@ -206,27 +215,49 @@ void MujocoExtractor::odometryCallback(const tf2_msgs::msg::TFMessage::SharedPtr
     // Inject position and velocity into mujoco data
     if (mj_data_ && have_frame_sensor_)
     {
-        HighStateData data;
+        OdometryData data;
         data.timestamp = timestamp;
-        
+
         // position
         data.base_pos[0] = state->transforms[0].transform.translation.x;
         data.base_pos[1] = state->transforms[0].transform.translation.y;
         data.base_pos[2] = state->transforms[0].transform.translation.z;
 
-        // velocity, CAUTION, THIS IS WRONG!!!
-        data.base_lin_vel[0] = state->transforms[0].transform.rotation.x;
-        data.base_lin_vel[1] = state->transforms[0].transform.rotation.y;
-        data.base_lin_vel[2] = state->transforms[0].transform.rotation.z;
+        // Lock mutex and write into buffer
+        {
+            std::lock_guard<std::mutex> lock(mtx_);
+            odometry_buffer_.push_back(data);
+
+            if (odometry_buffer_.size() > SYNC_BUFFER_MAX_SIZE)
+            {
+                odometry_buffer_.pop_front();
+            }
+        } // Free mutex
+    }
+}
+
+void MujocoExtractor::odometryFilteredCallback(const nav_msgs::msg::Odometry::SharedPtr state)
+{
+    auto now = std::chrono::system_clock::now();
+    double timestamp = std::chrono::duration<double>(now.time_since_epoch()).count();
+
+    // Inject position and velocity into mujoco data
+    if (mj_data_ && have_frame_sensor_)
+    {
+        OdometryFilteredData data;
+        data.timestamp = timestamp;
+        data.base_lin_vel[0] = state->twist.twist.linear.x;
+        data.base_lin_vel[1] = state->twist.twist.linear.y;
+        data.base_lin_vel[2] = state->twist.twist.linear.z;
 
         // Lock mutex and write into buffer
         {
             std::lock_guard<std::mutex> lock(mtx_);
-            high_state_buffer_.push_back(data);
+            odometry_filtered_buffer_.push_back(data);
 
-            if (high_state_buffer_.size() > SYNC_BUFFER_MAX_SIZE)
+            if (odometry_filtered_buffer_.size() > SYNC_BUFFER_MAX_SIZE)
             {
-                high_state_buffer_.pop_front();
+                odometry_filtered_buffer_.pop_front();
             }
         } // Free mutex
     }
@@ -282,15 +313,23 @@ void MujocoExtractor::insertSynchronizedData(const LowCmdData &cmd, const LowSta
 // and low state entry which is closed to it, but NOT newer!
 bool MujocoExtractor::GetSynchronizedState(double &out_timestamp, bool disabled)
 {
-    // std::cout << "calling GetSynchronizedState" << std::endl;
-
     if (!mj_data_)
         return false;
 
     std::lock_guard<std::mutex> lock(mtx_);
 
     // We use low cmd buffer as base, as it contains the most data
-    if (low_cmd_buffer_.empty() || high_state_buffer_.empty() || low_state_buffer_.empty())
+    if (USE_ODOMETRY && (odometry_buffer_.empty() || odometry_filtered_buffer_.empty()))
+    {
+        return false;
+    }
+
+    if (!USE_ODOMETRY && high_state_buffer_.empty())
+    {
+        return false;
+    }
+
+    if (low_cmd_buffer_.empty() || low_state_buffer_.empty())
     {
         return false;
     }
@@ -299,50 +338,121 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp, bool disabled)
     if (disabled)
     {
         const auto &ref_low_cmd = low_cmd_buffer_.back();
-        const auto &match_high_state = high_state_buffer_.back();
         const auto &match_low_state = low_state_buffer_.back();
+
+        HighStateData match_high_state;
+
+        if (!USE_ODOMETRY)
+        {
+            match_high_state = high_state_buffer_.back();
+        }
+        else
+        {
+            OdometryData odom = odometry_buffer_.back();
+            OdometryFilteredData odom_filt = odometry_filtered_buffer_.back();
+
+            match_high_state.timestamp = ref_low_cmd.timestamp;
+            match_high_state.base_pos[0] = odom.base_pos[0];
+            match_high_state.base_pos[1] = odom.base_pos[1];
+            match_high_state.base_pos[2] = odom.base_pos[2];
+
+            match_high_state.base_lin_vel[0] = odom_filt.base_lin_vel[0];
+            match_high_state.base_lin_vel[1] = odom_filt.base_lin_vel[1];
+            match_high_state.base_lin_vel[2] = odom_filt.base_lin_vel[2];
+        }
 
         insertSynchronizedData(ref_low_cmd, match_low_state, match_high_state);
 
         low_cmd_buffer_.clear();
         high_state_buffer_.clear();
         low_state_buffer_.clear();
+        odometry_buffer_.clear();
+        odometry_filtered_buffer_.clear();
         return true;
     }
 
     const auto &ref_low_cmd = low_cmd_buffer_.front();
     double T_ref = ref_low_cmd.timestamp;
 
-    auto it_high = high_state_buffer_.rbegin();
-    while (it_high != high_state_buffer_.rend() && it_high->timestamp > T_ref)
-    {
-        ++it_high;
-    }
-
+    // Get the low state first
     auto it_low = low_state_buffer_.rbegin();
     while (it_low != low_state_buffer_.rend() && it_low->timestamp > T_ref)
     {
         ++it_low;
     }
 
-    if (it_high == high_state_buffer_.rend() || it_low == low_state_buffer_.rend())
+    if (it_low == low_state_buffer_.rend())
     {
         low_cmd_buffer_.pop_front();
-
-        // std::cout << "no matching high or low state" << std::endl;
         return false;
     }
 
-    const auto &match_high_state = *it_high;
-    const auto &match_low_state = *it_low;
+    const LowStateData *match_low_state = &(*it_low);
+
+    // Now get the high state
+    HighStateData high_state_data;
+
+    if (!USE_ODOMETRY)
+    {
+        auto it_high = high_state_buffer_.rbegin();
+        while (it_high != high_state_buffer_.rend() && it_high->timestamp > T_ref)
+        {
+            ++it_high;
+        }
+
+        if (it_high == high_state_buffer_.rend())
+        {
+            low_cmd_buffer_.pop_front();
+            return false;
+        }
+
+        high_state_data = *it_high;
+
+        high_state_buffer_.erase(high_state_buffer_.begin(), it_high.base() - 1);
+    }
+    else // Use odometry data
+    {
+        auto it_odometry = odometry_buffer_.rbegin();
+        while (it_odometry != odometry_buffer_.rend() && it_odometry->timestamp > T_ref)
+        {
+            ++it_odometry;
+        }
+
+        auto it_odometry_filtered = odometry_filtered_buffer_.rbegin();
+        while (it_odometry_filtered != odometry_filtered_buffer_.rend() && it_odometry_filtered->timestamp > T_ref)
+        {
+            ++it_odometry_filtered;
+        }
+
+        if (it_odometry == odometry_buffer_.rend() || it_odometry_filtered == odometry_filtered_buffer_.rend())
+        {
+            low_cmd_buffer_.pop_front();
+            return false;
+        }
+
+        OdometryData odom = *it_odometry;
+        OdometryFilteredData odom_filt = *it_odometry_filtered;
+
+        high_state_data.timestamp = T_ref;
+
+        high_state_data.base_pos[0] = odom.base_pos[0];
+        high_state_data.base_pos[1] = odom.base_pos[1];
+        high_state_data.base_pos[2] = odom.base_pos[2];
+
+        high_state_data.base_lin_vel[0] = odom_filt.base_lin_vel[0];
+        high_state_data.base_lin_vel[1] = odom_filt.base_lin_vel[1];
+        high_state_data.base_lin_vel[2] = odom_filt.base_lin_vel[2];
+
+        odometry_buffer_.erase(odometry_buffer_.begin(), it_odometry.base() - 1);
+        odometry_filtered_buffer_.erase(odometry_filtered_buffer_.begin(), it_odometry_filtered.base() - 1);
+    }
 
     // Insert data into mj_data
-    insertSynchronizedData(ref_low_cmd, match_low_state, match_high_state);
+    insertSynchronizedData(ref_low_cmd, *match_low_state, high_state_data);
 
     out_timestamp = T_ref;
     low_cmd_buffer_.pop_front();
 
-    high_state_buffer_.erase(high_state_buffer_.begin(), it_high.base() - 1);
     low_state_buffer_.erase(low_state_buffer_.begin(), it_low.base() - 1);
 
     std::cout << "komme bis hier " << std::endl;
