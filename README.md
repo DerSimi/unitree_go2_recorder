@@ -1,7 +1,7 @@
 # Unitree Go2 to MuJoCo
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![MuJoCo](https://img.shields.io/badge/ROS2-Humble-blue)
-![MuJoCo](https://img.shields.io/badge/MuJoCo-3.2.7+-blue)
+![MuJoCo](https://img.shields.io/badge/MuJoCo-3.2.7-blue)
 
 This project contains code to convert Unitree Go2 real-world data to MuJoCo, visualization and conversion to numpy!
 
