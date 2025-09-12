@@ -455,8 +455,6 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp, bool disabled)
 
     low_state_buffer_.erase(low_state_buffer_.begin(), it_low.base() - 1);
 
-    std::cout << "komme bis hier " << std::endl;
-
     return true;
 }
 

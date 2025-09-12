@@ -37,7 +37,7 @@ using namespace std;
 #define SYNC_BUFFER_MAX_SIZE 100
 
 // Enable to use odometry, the sport state is then ignored.
-#define USE_ODOMETRY false
+#define USE_ODOMETRY true
 
 struct LowStateData
 {

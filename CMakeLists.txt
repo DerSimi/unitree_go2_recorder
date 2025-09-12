@@ -14,6 +14,7 @@ find_package(ZLIB REQUIRED)
 # Ros stuff
 find_package(rclcpp REQUIRED)
 find_package(tf2_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(unitree_go REQUIRED)
 
 file(GLOB SIM_SRC
@@ -41,12 +42,14 @@ target_include_directories(mujoco_extractor
   PRIVATE /opt/ros/${ROS_DISTRO}/include
   PRIVATE ${tf2_msgs_INCLUDE_DIRS}
   PRIVATE ${unitree_go_INCLUDE_DIRS}
+  PRIVATE ${nav_msgs_INCLUDE_DIRS}
 )
 target_link_libraries(mujoco_extractor
   PRIVATE ${SIM_DEPENDENCIES}
   PRIVATE rclcpp::rclcpp
   PRIVATE ${tf2_msgs_LIBRARIES}
   PRIVATE ${unitree_go_LIBRARIES}
+  PRIVATE ${nav_msgs_LIBRARIES}
 )
 
 # add_executable(circle_walk src/circle_walk.cc)
