@@ -1,5 +1,5 @@
 # Unitree Go2 to MuJoCo
-This project contains code to convert Unitree Go2 real-world data to MuJoCo and visualize it.
+This project contains code to convert Unitree Go2 real-world data to MuJoCo, visualization and conversion to numpy!
 
 # ![Project Thumbnail](assets/thumbnail.png)
 
