@@ -14,6 +14,7 @@ This project contains code to convert Unitree Go2 real-world data to MuJoCo and 
 # Installation
 Don't forget to install the dependencies:
 
+- [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2)
 - [unitree_sdk2](https://github.com/unitreerobotics/unitree_sdk2)
 - [mujoco](https://github.com/google-deepmind/mujoco) (version 3.2.7)
 - [cnpy](https://github.com/rogersce/cnpy)
@@ -63,9 +64,17 @@ The sample data was recorded using:
 ros2 bag record /lowstate /lowcmd /sportmodestate -o recording07082
 ```
 
+Make sure you installed [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2) and properly sourced the environment, otherwise ros can't find the topic packages.
+To get the setup working, run the following commands:
+```
+source 'source ~/unitree_ros2/setup_local.sh'
+export ROS_DOMAIN_ID=1
+source ~/unitree_ros2/install/setup.sh
+```
+
 To use the sample data:
 1. Unpack the archive in the `samples` folder if needed.
-2. Start `mujoco_extractor` in the build directory:
+2. Start `mujoco_extractor` in a seperate terminal without sourcing anything. This is only required for the rosbag part! Go to the build directory and run:
 	```zsh
 	./mujoco_extractor
 	```
