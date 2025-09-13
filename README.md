@@ -1,20 +1,56 @@
 # Unitree Go2 to MuJoCo
-This project contains code to convert Unitree Go2 real-world data to MuJoCo and visualize it.
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+![MuJoCo](https://img.shields.io/badge/ROS2-Humble-blue)
+![MuJoCo](https://img.shields.io/badge/MuJoCo-3.2.7-blue)
+
+This project contains code to convert Unitree Go2 real-world data to MuJoCo, visualization and conversion to numpy!
 
 # ![Project Thumbnail](assets/thumbnail.png)
 
-# Key Features
+# ⭐ Key Features
 - ROS2 bag compatible
 - Synchronization
 - Timestamps for each step
 - Visualization
 - Numpy compatible output format
+- Supports unitree and [go2_odometry](https://github.com/inria-paris-robotics-lab/go2_odometry) for base state estimation!
 
+# 💾 Extracted Data
+The following data is stored:
+Low cmd:
+- q (position, 12 motors)
+- dq (velocity, 12 motors)
+- tau (12 motors)
+- kp (12 motors)
+- kd (12 motors)
 
-# Installation
+Low state:
+- quaternion
+- gyroscope
+- d (position, 12 motors)
+- dq (velocity, 12 motors)
+- tau_est (12 motors)
+- q_raw (12 motors)
+- dq_raw (12 motors)
+
+Sport state mode:
+- base position
+- base velocity
+
+> **Note**  
+> Sport state mode is not available when the robot is in low state mode (e. g. if you want to record policy data).
+
+You can replace the sport state mode by using [go2_odometry](https://github.com/inria-paris-robotics-lab/go2_odometry).
+After setting it up, in `src/extractor/extractor.h`, make sure this line is set to true:
+```c++
+#define USE_ODOMETRY true
+```
+Make sure your environment is properly sourced and use the `ROS_DOMAIN_ID` described below!
+
+# 💻 Installation
 Don't forget to install the dependencies:
 
-- [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2)
+- [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2): Only tested with Humble!
 - [unitree_sdk2](https://github.com/unitreerobotics/unitree_sdk2)
 - [mujoco](https://github.com/google-deepmind/mujoco) (version 3.2.7)
 - [cnpy](https://github.com/rogersce/cnpy)
@@ -27,10 +63,11 @@ checkout the commit `3a4680ae9b00df59e60f7e63cfb0fcc432a9d08d` in `unitree_sdk2`
 
 Make sure all dependencies are installed and available in your system path. Then build the project with:
 ```zsh
-git clone https://github.com/DerSimi/sim2real-transfer && cd sim2real-transfer
+git clone https://github.com/DerSimi/unitree_go2_to_mujoco && cd unitree_go2_to_mujoco
 mkdir build && cd build
 cmake .. && make
 ```
+Note, if you see any errors, source your unitree ros2 workspace, especially, source `setup.sh` and `install/setup.sh`.
 
 To run the extractor in the build directory:
 ```zsh
@@ -74,7 +111,7 @@ source ~/unitree_ros2/install/setup.sh
 
 To use the sample data:
 1. Unpack the archive in the `samples` folder if needed.
-2. Start `mujoco_extractor` in a seperate terminal without sourcing anything. This is only required for the rosbag part! Go to the build directory and run:
+2. Start `mujoco_extractor` in a seperate terminal. Go to the build directory and run:
 	```zsh
 	./mujoco_extractor
 	```
