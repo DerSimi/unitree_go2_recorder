@@ -32,7 +32,6 @@ using namespace std;
 #define TOPIC_LOWSTATE "/lowstate"
 #define TOPIC_HIGHSTATE "/sportmodestate"
 #define TOPIC_LOWCMD "/lowcmd"
-#define TOPIC_ODOMETRY "/tf"
 #define TOPIC_ODOMETRY_FILTERED "/odometry/filtered"
 
 #define MOTOR_SENSOR_NUM 3
@@ -40,8 +39,8 @@ using namespace std;
 
 // Enable to use odometry, the sport state is then ignored.
 #define USE_ODOMETRY true
-//Odometry z offset, change this to your setup
-#define ODOMETRY_Z_OFFSET 0.21
+// Odometry z offset, change this to your setup
+#define ODOMETRY_Z_OFFSET 0.32
 
 struct LowStateData
 {
@@ -71,18 +70,13 @@ struct HighStateData
     mjtNum base_lin_vel[3]; // base linear velocity
 };
 
-struct TransformationOdometryData // odom -> robot
+struct OdometryData
 {
     double timestamp;
-    mjtNum translation[3]; // translation
-    mjtNum rotation[4]; // rotation, x y z w
-};
-
-struct OdometryFilteredData 
-{
-    double timestamp;
-    mjtNum base_pos[3]; // base position
+    mjtNum base_pos[3];     // base position
     mjtNum base_lin_vel[3]; // base linear velocity
+    mjtNum base_quat[4];
+    mjtNum base_ang_vel[3];
 };
 
 struct LowCmdData
@@ -112,28 +106,25 @@ public:
     MujocoExtractor(mjModel *model, mjData *data, helperData *helper_data);
     ~MujocoExtractor();
 
-    bool GetSynchronizedState(double &out_timestamp, bool disabled = false);
+    bool GetSynchronizedState(double &out_timestamp);
 
 private:
     rclcpp::CallbackGroup::SharedPtr low_state_group_;
     rclcpp::CallbackGroup::SharedPtr low_cmd_group_;
     rclcpp::CallbackGroup::SharedPtr high_state_group_;
-    rclcpp::CallbackGroup::SharedPtr odometry_group_;
     rclcpp::CallbackGroup::SharedPtr odometry_filtered_group_;
 
     rclcpp::Subscription<unitree_go::msg::LowState>::SharedPtr low_state_sub_;
     rclcpp::Subscription<unitree_go::msg::LowCmd>::SharedPtr low_cmd_sub_;
     rclcpp::Subscription<unitree_go::msg::SportModeState>::SharedPtr high_state_sub_;
-    rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr odometry_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_filtered_sub_;
 
     std::deque<LowStateData> low_state_buffer_;
     std::deque<HighStateData> high_state_buffer_;
     std::deque<LowCmdData> low_cmd_buffer_;
-    std::deque<TransformationOdometryData> odometry_buffer_;
-    std::deque<OdometryFilteredData> odometry_filtered_buffer_;
+    std::deque<OdometryData> odometry_filtered_buffer_;
 
-    std::mutex mtx_;
+    std::mutex buffer_mtx_;
 
     mjData *mj_data_;
     mjModel *mj_model_;
@@ -142,16 +133,18 @@ private:
 
     int num_motor_ = 0;
     int dim_motor_sensor_ = 0;
-
     int have_imu_ = false;
     int have_frame_sensor_ = false;
+
+    // For odometry correction
+    bool initial_rotation_captured_ = false;
+    Eigen::Isometry3d world_to_odom_correction_;
 
     // Handler
     void lowCmdCallback(const unitree_go::msg::LowCmd::SharedPtr msg);
     void lowStateCallback(const unitree_go::msg::LowState::SharedPtr msg);
     void highStateCallback(const unitree_go::msg::SportModeState::SharedPtr msg);
-    void odometryCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg);
-    void odometryFilteredCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
     void insertSynchronizedData(const LowCmdData &cmd, const LowStateData &low_state, const HighStateData &high_state);
 

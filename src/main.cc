@@ -133,7 +133,7 @@ namespace
       {
         double timestamp;
         // Versuche, einen neuen, synchronisierten Zustand zu bekommen
-        if (unitree_interface->GetSynchronizedState(timestamp, false))
+        if (unitree_interface->GetSynchronizedState(timestamp))
         {
           const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
 
