@@ -9,6 +9,8 @@
 #include <tf2_msgs/msg/tf_message.hpp>
 #include "nav_msgs/msg/odometry.hpp"
 
+#include <Eigen/Geometry>
+
 #include "unitree_go/msg/low_cmd.hpp"
 #include "unitree_go/msg/low_state.hpp"
 #include "unitree_go/msg/sport_mode_state.hpp"
@@ -38,6 +40,8 @@ using namespace std;
 
 // Enable to use odometry, the sport state is then ignored.
 #define USE_ODOMETRY true
+//Odometry z offset, change this to your setup
+#define ODOMETRY_Z_OFFSET 0.21
 
 struct LowStateData
 {
@@ -67,15 +71,17 @@ struct HighStateData
     mjtNum base_lin_vel[3]; // base linear velocity
 };
 
-struct OdometryData
+struct TransformationOdometryData // odom -> robot
+{
+    double timestamp;
+    mjtNum translation[3]; // translation
+    mjtNum rotation[4]; // rotation, x y z w
+};
+
+struct OdometryFilteredData 
 {
     double timestamp;
     mjtNum base_pos[3]; // base position
-};
-
-struct OdometryFilteredData
-{
-    double timestamp;
     mjtNum base_lin_vel[3]; // base linear velocity
 };
 
@@ -124,7 +130,7 @@ private:
     std::deque<LowStateData> low_state_buffer_;
     std::deque<HighStateData> high_state_buffer_;
     std::deque<LowCmdData> low_cmd_buffer_;
-    std::deque<OdometryData> odometry_buffer_;
+    std::deque<TransformationOdometryData> odometry_buffer_;
     std::deque<OdometryFilteredData> odometry_filtered_buffer_;
 
     std::mutex mtx_;

@@ -215,13 +215,19 @@ void MujocoExtractor::odometryCallback(const tf2_msgs::msg::TFMessage::SharedPtr
     // Inject position and velocity into mujoco data
     if (mj_data_ && have_frame_sensor_)
     {
-        OdometryData data;
+        TransformationOdometryData data;
         data.timestamp = timestamp;
 
-        // position
-        data.base_pos[0] = state->transforms[0].transform.translation.x;
-        data.base_pos[1] = state->transforms[0].transform.translation.y;
-        data.base_pos[2] = state->transforms[0].transform.translation.z;
+        // translation
+        data.translation[0] = state->transforms[0].transform.translation.x;
+        data.translation[1] = state->transforms[0].transform.translation.y;
+        data.translation[2] = state->transforms[0].transform.translation.z;
+
+        // rotation
+        data.rotation[0] = state->transforms[0].transform.rotation.x;
+        data.rotation[1] = state->transforms[0].transform.rotation.y;
+        data.rotation[2] = state->transforms[0].transform.rotation.z;
+        data.rotation[3] = state->transforms[0].transform.rotation.w;
 
         // Lock mutex and write into buffer
         {
@@ -246,6 +252,9 @@ void MujocoExtractor::odometryFilteredCallback(const nav_msgs::msg::Odometry::Sh
     {
         OdometryFilteredData data;
         data.timestamp = timestamp;
+        data.base_pos[0] = state->pose.pose.position.x;
+        data.base_pos[1] = state->pose.pose.position.y;
+        data.base_pos[2] = state->pose.pose.position.z;
         data.base_lin_vel[0] = state->twist.twist.linear.x;
         data.base_lin_vel[1] = state->twist.twist.linear.y;
         data.base_lin_vel[2] = state->twist.twist.linear.z;
@@ -348,17 +357,31 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp, bool disabled)
         }
         else
         {
-            OdometryData odom = odometry_buffer_.back();
+            TransformationOdometryData odom = odometry_buffer_.back();
             OdometryFilteredData odom_filt = odometry_filtered_buffer_.back();
 
             match_high_state.timestamp = ref_low_cmd.timestamp;
-            match_high_state.base_pos[0] = odom.base_pos[0];
-            match_high_state.base_pos[1] = odom.base_pos[1];
-            match_high_state.base_pos[2] = odom.base_pos[2];
 
-            match_high_state.base_lin_vel[0] = odom_filt.base_lin_vel[0];
-            match_high_state.base_lin_vel[1] = odom_filt.base_lin_vel[1];
-            match_high_state.base_lin_vel[2] = odom_filt.base_lin_vel[2];
+            // Transformation: Rotate 90 degrees around Z-axis
+            double angle = M_PI / 2.0; // 90 degrees in radians
+            Eigen::AngleAxisd rotation_vec(angle, Eigen::Vector3d::UnitZ());
+
+            // Original position and velocity
+            Eigen::Vector3d p(odom_filt.base_pos[0], odom_filt.base_pos[1], odom_filt.base_pos[2]);
+            Eigen::Vector3d v(odom_filt.base_lin_vel[0], odom_filt.base_lin_vel[1], odom_filt.base_lin_vel[2]);
+
+            // Apply rotation
+            Eigen::Vector3d p_rotated = rotation_vec * p;
+            Eigen::Vector3d v_rotated = rotation_vec * v;
+
+            // Store the result
+            match_high_state.base_pos[0] = p_rotated.x();
+            match_high_state.base_pos[1] = p_rotated.y();
+            match_high_state.base_pos[2] = p_rotated.z() + ODOMETRY_Z_OFFSET;
+
+            match_high_state.base_lin_vel[0] = v_rotated.x();
+            match_high_state.base_lin_vel[1] = v_rotated.y();
+            match_high_state.base_lin_vel[2] = v_rotated.z();
         }
 
         insertSynchronizedData(ref_low_cmd, match_low_state, match_high_state);
@@ -430,18 +453,30 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp, bool disabled)
             return false;
         }
 
-        OdometryData odom = *it_odometry;
         OdometryFilteredData odom_filt = *it_odometry_filtered;
 
         high_state_data.timestamp = T_ref;
 
-        high_state_data.base_pos[0] = odom.base_pos[0];
-        high_state_data.base_pos[1] = odom.base_pos[1];
-        high_state_data.base_pos[2] = odom.base_pos[2];
+        // Transformation: Rotate 90 degrees around Z-axis
+        double angle = M_PI / 2.0; // 90 degrees in radians
+        Eigen::AngleAxisd rotation_vec(angle, Eigen::Vector3d::UnitZ());
 
-        high_state_data.base_lin_vel[0] = odom_filt.base_lin_vel[0];
-        high_state_data.base_lin_vel[1] = odom_filt.base_lin_vel[1];
-        high_state_data.base_lin_vel[2] = odom_filt.base_lin_vel[2];
+        // Original position and velocity
+        Eigen::Vector3d p(odom_filt.base_pos[0], odom_filt.base_pos[1], odom_filt.base_pos[2]);
+        Eigen::Vector3d v(odom_filt.base_lin_vel[0], odom_filt.base_lin_vel[1], odom_filt.base_lin_vel[2]);
+
+        // Apply rotation
+        Eigen::Vector3d p_rotated = rotation_vec * p;
+        Eigen::Vector3d v_rotated = rotation_vec * v;
+
+        // Store the result
+        high_state_data.base_pos[0] = p_rotated.x();
+        high_state_data.base_pos[1] = p_rotated.y();
+        high_state_data.base_pos[2] = p_rotated.z() + ODOMETRY_Z_OFFSET;
+
+        high_state_data.base_lin_vel[0] = v_rotated.x();
+        high_state_data.base_lin_vel[1] = v_rotated.y();
+        high_state_data.base_lin_vel[2] = v_rotated.z();
 
         odometry_buffer_.erase(odometry_buffer_.begin(), it_odometry.base() - 1);
         odometry_filtered_buffer_.erase(odometry_filtered_buffer_.begin(), it_odometry_filtered.base() - 1);
