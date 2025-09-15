@@ -8,256 +8,24 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helpe
     : rclcpp::Node("mujoco_extractor_node"),
       mj_model_(model),
       mj_data_(data),
-      helper_data_(helper_data)
+      helper_data_(helper_data),
+      low_state_source_(),
+      low_cmd_source_(data),
+      high_state_source_()
 {
-    // Callback groups for better timing
-    low_state_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-    low_cmd_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-    high_state_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-    odometry_filtered_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-
-    auto low_state_opt = rclcpp::SubscriptionOptions();
-    low_state_opt.callback_group = low_state_group_;
-
-    auto low_cmd_opt = rclcpp::SubscriptionOptions();
-    low_cmd_opt.callback_group = low_cmd_group_;
-
-    auto high_state_opt = rclcpp::SubscriptionOptions();
-    high_state_opt.callback_group = high_state_group_;
-
-    auto odom_filtered_opt = rclcpp::SubscriptionOptions();
-    odom_filtered_opt.callback_group = odometry_filtered_group_;
+    // New data representation
+    low_state_source_.subscribe(this);
+    low_cmd_source_.subscribe(this);
 
     // Subscribe topics
-    low_state_sub_ = this->create_subscription<unitree_go::msg::LowState>(
-        TOPIC_LOWSTATE, rclcpp::SensorDataQoS(),
-        std::bind(&MujocoExtractor::lowStateCallback, this, std::placeholders::_1), low_state_opt);
-
-    low_cmd_sub_ = this->create_subscription<unitree_go::msg::LowCmd>(
-        TOPIC_LOWCMD, rclcpp::SensorDataQoS(),
-        std::bind(&MujocoExtractor::lowCmdCallback, this, std::placeholders::_1), low_cmd_opt);
-
     if (USE_ODOMETRY)
     {
-        odometry_filtered_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            TOPIC_ODOMETRY_FILTERED, rclcpp::SensorDataQoS(),
-            std::bind(&MujocoExtractor::odometryCallback, this, std::placeholders::_1), odom_filtered_opt);
-    }
-    else
-    {
-        high_state_sub_ = this->create_subscription<unitree_go::msg::SportModeState>(
-            TOPIC_HIGHSTATE, rclcpp::SensorDataQoS(),
-            std::bind(&MujocoExtractor::highStateCallback, this, std::placeholders::_1), high_state_opt);
+        odometry_source_.subscribe(this);
+    } else {
+        high_state_source_.subscribe(this);
     }
 
     checkSensor();
-}
-
-void MujocoExtractor::lowCmdCallback(const unitree_go::msg::LowCmd::SharedPtr cmd)
-{
-    auto now = std::chrono::system_clock::now();
-    double timestamp = std::chrono::duration<double>(now.time_since_epoch()).count();
-
-    LowCmdData data(num_motor_);
-    data.timestamp = timestamp;
-
-    for (int i = 0; i < num_motor_; i++)
-    {
-        data.ctrl[i] = cmd->motor_cmd[i].tau +
-                       cmd->motor_cmd[i].kp * (cmd->motor_cmd[i].q - mj_data_->sensordata[i]) +
-                       cmd->motor_cmd[i].kd * (cmd->motor_cmd[i].dq - mj_data_->sensordata[i + num_motor_]);
-
-        // Save additional data
-        data.q[i] = cmd->motor_cmd[i].q;
-        data.dq[i] = cmd->motor_cmd[i].dq;
-        data.tau[i] = cmd->motor_cmd[i].tau;
-        data.kp[i] = cmd->motor_cmd[i].kp;
-        data.kd[i] = cmd->motor_cmd[i].kd;
-    }
-
-    // Lock mutex and write into buffer
-    {
-        std::lock_guard<std::mutex> lock(buffer_mtx_);
-        low_cmd_buffer_.push_back(data);
-
-        if (low_cmd_buffer_.size() > SYNC_BUFFER_MAX_SIZE)
-        {
-            low_cmd_buffer_.pop_front();
-        }
-    } // Free mutex
-}
-
-void MujocoExtractor::lowStateCallback(const unitree_go::msg::LowState::SharedPtr state)
-{
-    auto now = std::chrono::system_clock::now();
-    double timestamp = std::chrono::duration<double>(now.time_since_epoch()).count();
-
-    LowStateData data(num_motor_);
-    data.timestamp = timestamp;
-
-    // Rotation
-    data.base_quat[0] = state->imu_state.quaternion[0]; // w
-    data.base_quat[1] = state->imu_state.quaternion[1]; // x
-    data.base_quat[2] = state->imu_state.quaternion[2]; // y
-    data.base_quat[3] = state->imu_state.quaternion[3]; // z
-
-    // Angular velocity
-    data.base_ang_vel[0] = state->imu_state.gyroscope[0];
-    data.base_ang_vel[1] = state->imu_state.gyroscope[1];
-    data.base_ang_vel[2] = state->imu_state.gyroscope[2];
-
-    // Linear velocity is not in here, only acceleration!!!
-
-    // Inject motor state
-    for (int i = 0; i < num_motor_; i++)
-    {
-        // angle
-        data.qpos_joints[i] = state->motor_state[i].q;
-
-        // angular velocity
-        data.qvel_joints[i] = state->motor_state[i].dq;
-
-        // more information to collect
-        data.tau_est[i] = state->motor_state[i].tau_est;
-        data.q_raw[i] = state->motor_state[i].q_raw;
-        data.dq_raw[i] = state->motor_state[i].dq_raw;
-    }
-
-    // Lock mutex and write into buffer
-    {
-        std::lock_guard<std::mutex> lock(buffer_mtx_);
-        low_state_buffer_.push_back(data);
-
-        if (low_state_buffer_.size() > SYNC_BUFFER_MAX_SIZE)
-        {
-            low_state_buffer_.pop_front();
-        }
-    } // Free mutex
-}
-
-void MujocoExtractor::highStateCallback(const unitree_go::msg::SportModeState::SharedPtr state)
-{
-    auto now = std::chrono::system_clock::now();
-    double timestamp = std::chrono::duration<double>(now.time_since_epoch()).count();
-
-    // Inject position and velocity into mujoco data
-    HighStateData data;
-    data.timestamp = timestamp;
-
-    // position
-    data.base_pos[0] = state->position[0];
-    data.base_pos[1] = state->position[1];
-    data.base_pos[2] = state->position[2];
-
-    // velocity
-    data.base_lin_vel[0] = state->velocity[0];
-    data.base_lin_vel[1] = state->velocity[1];
-    data.base_lin_vel[2] = state->velocity[2];
-
-    // Lock mutex and write into buffer
-    {
-        std::lock_guard<std::mutex> lock(buffer_mtx_);
-        high_state_buffer_.push_back(data);
-
-        if (high_state_buffer_.size() > SYNC_BUFFER_MAX_SIZE)
-        {
-            high_state_buffer_.pop_front();
-        }
-    } // Free mutex
-}
-
-void MujocoExtractor::odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
-{
-    auto now = std::chrono::system_clock::now();
-    double timestamp = std::chrono::duration<double>(now.time_since_epoch()).count();
-
-    if (!initial_rotation_captured_)
-    {
-        // We need to set odom to the mujoco world frame: Start position is zero, and rotation is pointing to the x-axis.
-        Eigen::Vector3d initial_odom_pos(
-            msg->pose.pose.position.x,
-            msg->pose.pose.position.y,
-            msg->pose.pose.position.z);
-        Eigen::Quaterniond initial_odom_quat(
-            msg->pose.pose.orientation.w,
-            msg->pose.pose.orientation.x,
-            msg->pose.pose.orientation.y,
-            msg->pose.pose.orientation.z);
-
-        Eigen::Isometry3d initial_odom_transform = Eigen::Isometry3d::Identity();
-        initial_odom_transform.translate(initial_odom_pos);
-        initial_odom_transform.rotate(initial_odom_quat);
-        {
-            world_to_odom_correction_ = initial_odom_transform.inverse();
-            initial_rotation_captured_ = true;
-        }
-        return;
-    }
-
-    // Inject position and velocity into mujoco data
-    Eigen::Vector3d current_odom_pos(
-        msg->pose.pose.position.x,
-        msg->pose.pose.position.y,
-        msg->pose.pose.position.z);
-    Eigen::Quaterniond current_odom_quat(
-        msg->pose.pose.orientation.w,
-        msg->pose.pose.orientation.x,
-        msg->pose.pose.orientation.y,
-        msg->pose.pose.orientation.z);
-
-    // Current orientation and position in odom frame
-    Eigen::Isometry3d current_odom_transform = Eigen::Isometry3d::Identity();
-    current_odom_transform.translate(current_odom_pos);
-    current_odom_transform.rotate(current_odom_quat);
-
-    // Apply correction to get the position in the "world" frame
-    Eigen::Isometry3d corrected_transform = world_to_odom_correction_ * current_odom_transform;
-
-    // Corrected pos
-    Eigen::Vector3d corrected_pos = corrected_transform.translation();
-
-    // Corrected linear velocity
-    Eigen::Vector3d odom_lin_vel(msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.linear.z);
-    Eigen::Vector3d corrected_lin_vel = world_to_odom_correction_.rotation() * odom_lin_vel;
-
-    // Corrected orientation
-    Eigen::Quaterniond corrected_quat = Eigen::Quaterniond(corrected_transform.rotation());
-
-    // Corrected angular velocity
-    Eigen::Vector3d odom_ang_vel(msg->twist.twist.angular.x, msg->twist.twist.angular.y, msg->twist.twist.angular.z);
-    Eigen::Vector3d corrected_ang_vel = world_to_odom_correction_.rotation() * odom_ang_vel;
-
-    OdometryData data;
-
-    data.timestamp = timestamp;
-    // Position
-    data.base_pos[0] = corrected_pos[0];
-    data.base_pos[1] = corrected_pos[1];
-    data.base_pos[2] = corrected_pos[2];
-    // Velocity
-    data.base_lin_vel[0] = corrected_lin_vel[0];
-    data.base_lin_vel[1] = corrected_lin_vel[1];
-    data.base_lin_vel[2] = corrected_lin_vel[2];
-    // Angular velocity
-    data.base_ang_vel[0] = corrected_ang_vel.x();
-    data.base_ang_vel[1] = corrected_ang_vel.y();
-    data.base_ang_vel[2] = corrected_ang_vel.z();
-    // Orientation
-    data.base_quat[0] = corrected_quat.w();
-    data.base_quat[1] = corrected_quat.x();
-    data.base_quat[2] = corrected_quat.y();
-    data.base_quat[3] = corrected_quat.z();
-
-    // Lock mutex and write into buffer
-    {
-        std::lock_guard<std::mutex> lock(buffer_mtx_);
-        odometry_filtered_buffer_.push_back(data);
-
-        if (odometry_filtered_buffer_.size() > SYNC_BUFFER_MAX_SIZE)
-        {
-            odometry_filtered_buffer_.pop_front();
-        }
-    } // Free mutex
 }
 
 void MujocoExtractor::insertSynchronizedData(const LowCmdData &cmd, const LowStateData &low_state, const HighStateData &high_state)
@@ -316,34 +84,34 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
     std::lock_guard<std::mutex> lock(buffer_mtx_);
 
     // We use low cmd buffer as base, as it contains the most data
-    if (USE_ODOMETRY && odometry_filtered_buffer_.empty())
+    if (USE_ODOMETRY && odometry_source_.buffer().empty())
     {
         return false;
     }
 
-    if (!USE_ODOMETRY && high_state_buffer_.empty())
+    if (!USE_ODOMETRY && high_state_source_.buffer().empty())
     {
         return false;
     }
 
-    if (low_cmd_buffer_.empty() || low_state_buffer_.empty())
+    if (low_cmd_source_.buffer().empty() || low_state_source_.buffer().empty())
     {
         return false;
     }
 
-    const auto &ref_low_cmd = low_cmd_buffer_.front();
+    const auto &ref_low_cmd = low_cmd_source_.buffer().front();
     double T_ref = ref_low_cmd.timestamp;
 
     // Get the low state first
-    auto it_low = low_state_buffer_.rbegin();
-    while (it_low != low_state_buffer_.rend() && it_low->timestamp > T_ref)
+    auto it_low = low_state_source_.buffer().rbegin();
+    while (it_low != low_state_source_.buffer().rend() && it_low->timestamp > T_ref)
     {
         ++it_low;
     }
 
-    if (it_low == low_state_buffer_.rend())
+    if (it_low == low_state_source_.buffer().rend())
     {
-        low_cmd_buffer_.pop_front();
+        low_cmd_source_.buffer().pop_front();
         return false;
     }
 
@@ -354,33 +122,33 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
 
     if (!USE_ODOMETRY)
     {
-        auto it_high = high_state_buffer_.rbegin();
-        while (it_high != high_state_buffer_.rend() && it_high->timestamp > T_ref)
+        auto it_high = high_state_source_.buffer().rbegin();
+        while (it_high != high_state_source_.buffer().rend() && it_high->timestamp > T_ref)
         {
             ++it_high;
         }
 
-        if (it_high == high_state_buffer_.rend())
+        if (it_high == high_state_source_.buffer().rend())
         {
-            low_cmd_buffer_.pop_front();
+            low_cmd_source_.buffer().pop_front();
             return false;
         }
 
         high_state_data = *it_high;
 
-        high_state_buffer_.erase(high_state_buffer_.begin(), it_high.base() - 1);
+        high_state_source_.buffer().erase(high_state_source_.buffer().begin(), it_high.base() - 1);
     }
     else // Use odometry data
     {
-        auto it_odometry_filtered = odometry_filtered_buffer_.rbegin();
-        while (it_odometry_filtered != odometry_filtered_buffer_.rend() && it_odometry_filtered->timestamp > T_ref)
+        auto it_odometry_filtered = odometry_source_.buffer().rbegin();
+        while (it_odometry_filtered != odometry_source_.buffer().rend() && it_odometry_filtered->timestamp > T_ref)
         {
             ++it_odometry_filtered;
         }
 
-        if (it_odometry_filtered == odometry_filtered_buffer_.rend())
+        if (it_odometry_filtered == odometry_source_.buffer().rend())
         {
-            low_cmd_buffer_.pop_front();
+            low_cmd_source_.buffer().pop_front();
             return false;
         }
 
@@ -408,16 +176,16 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
         match_low_state->base_ang_vel[1] = odometry.base_ang_vel[1];
         match_low_state->base_ang_vel[2] = odometry.base_ang_vel[2];
 
-        odometry_filtered_buffer_.erase(odometry_filtered_buffer_.begin(), it_odometry_filtered.base() - 1);
+        odometry_source_.buffer().erase(odometry_source_.buffer().begin(), it_odometry_filtered.base() - 1);
     }
 
     // Insert data into mj_data
     insertSynchronizedData(ref_low_cmd, *match_low_state, high_state_data);
 
     out_timestamp = T_ref;
-    low_cmd_buffer_.pop_front();
+    low_cmd_source_.buffer().pop_front();
 
-    low_state_buffer_.erase(low_state_buffer_.begin(), it_low.base() - 1);
+    low_state_source_.buffer().erase(low_state_source_.buffer().begin(), it_low.base() - 1);
 
     return true;
 }

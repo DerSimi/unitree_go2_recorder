@@ -23,6 +23,12 @@ file(GLOB SIM_SRC
   ${CMAKE_SOURCE_DIR}/src/mujoco/*.cc
   ${CMAKE_SOURCE_DIR}/src/extractor/*.cc
   ${CMAKE_SOURCE_DIR}/src/storage/*.cc
+  ${CMAKE_SOURCE_DIR}/src/base/*.cpp
+  ${CMAKE_SOURCE_DIR}/src/base/low_state/*.cpp
+  ${CMAKE_SOURCE_DIR}/src/base/low_cmd/*.cpp
+  ${CMAKE_SOURCE_DIR}/src/base/high_state/*.cpp
+  ${CMAKE_SOURCE_DIR}/src/base/go2_odometry/*.cpp
+  ${CMAKE_SOURCE_DIR}/src/base/vicon/*.cpp
 )
 
 set(SIM_DEPENDENCIES
