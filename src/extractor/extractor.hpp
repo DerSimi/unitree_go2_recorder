@@ -19,7 +19,7 @@
 #include "base/high_state/high_state.hpp"
 #include "base/go2_odometry/go2_odometry.hpp"
 
-#include "storage/storage_handler.h"
+#include "storage/storage_handler.hpp"
 
 using namespace std;
 
@@ -46,8 +46,6 @@ private:
     HighStateSource high_state_source_;
     OdometrySource odometry_source_;
 
-    std::mutex buffer_mtx_;
-
     mjData *mj_data_;
     mjModel *mj_model_;
 
@@ -59,5 +57,5 @@ private:
     int have_frame_sensor_ = false;
 
     void insertSynchronizedData(const LowCmdData &cmd, const LowStateData &low_state, const HighStateData &high_state);
-    void checkSensor();
+    void check_sensor();
 };

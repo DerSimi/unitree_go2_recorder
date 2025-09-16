@@ -1,4 +1,4 @@
-#include "extractor.h"
+#include "extractor.hpp"
 
 MujocoExtractor::~MujocoExtractor()
 {
@@ -25,7 +25,7 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helpe
         high_state_source_.subscribe(this);
     }
 
-    checkSensor();
+    check_sensor();
 }
 
 void MujocoExtractor::insertSynchronizedData(const LowCmdData &cmd, const LowStateData &low_state, const HighStateData &high_state)
@@ -81,7 +81,7 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
     if (!mj_data_ && have_frame_sensor_)
         return false;
 
-    std::lock_guard<std::mutex> lock(buffer_mtx_);
+    std::lock_guard<std::mutex> lock(DataSourceBase::sync_mtx_);
 
     // We use low cmd buffer as base, as it contains the most data
     if (USE_ODOMETRY && odometry_source_.buffer().empty())
@@ -190,14 +190,10 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
     return true;
 }
 
-void MujocoExtractor::checkSensor()
+void MujocoExtractor::check_sensor()
 {
     num_motor_ = mj_model_->nu;
     dim_motor_sensor_ = MOTOR_SENSOR_NUM * num_motor_;
-
-    cout << "num motors: " << num_motor_ << endl;
-    cout << "qpos dim: " << mj_model_->nq << endl;
-    cout << "qvel dim: " << mj_model_->nv << endl;
 
     for (int i = dim_motor_sensor_; i < mj_model_->nsensor; i++)
     {

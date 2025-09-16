@@ -6,7 +6,7 @@
 #include <cnpy.h>
 #include <mujoco/mujoco.h>
 
-using namespace std;
+#include "common.hpp"
 
 struct helperData
 {
@@ -47,8 +47,8 @@ public:
     ~StorageHandler();
 
     // add mujoco state to the storage buffer
-    void addState(const mjData *data, const helperData *helper_data, double timestamp = 0.0);
+    void add_state(const mjData *data, const helperData *helper_data, double timestamp = 0.0);
 
     // write data to file
-    void storeData();
+    void store_data(const char *filename);
 };

@@ -15,7 +15,7 @@
 // Base synchronization mutex for all data sources
 class DataSourceBase
 {
-protected:
+public:
   static std::mutex sync_mtx_;
 };
 

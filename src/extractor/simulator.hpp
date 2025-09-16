@@ -1,0 +1,66 @@
+#pragma once
+
+#include <chrono>
+#include <csignal>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <new>
+#include <string>
+#include <thread>
+#include <rclcpp/rclcpp.hpp>
+#include <mujoco/mujoco.h>
+#include <pthread.h>
+
+#include "mujoco/glfw_adapter.h"
+#include "mujoco/simulate.h"
+#include "mujoco/array_safety.h"
+
+#include "common.hpp"
+#include "extractor/extractor.hpp"
+#include "storage/storage_handler.hpp"
+
+extern "C"
+{
+#include <sys/errno.h>
+#include <unistd.h>
+}
+
+namespace mj = ::mujoco;
+namespace mju = ::mujoco::sample_util;
+
+#define K_ERROR_LENGTH 1024
+
+class Simulator
+{
+public:
+    Simulator();
+    ~Simulator() = default;
+private:
+    std::shared_ptr<MujocoExtractor> extractor_node;
+
+    bool use_gui_;
+    char* storage_path_;
+
+    mjModel *m_;
+    mjData *d_ = nullptr;
+    helperData *helper_data_; // For collecting more data
+
+    std::unique_ptr<StorageHandler> storage_handler_;
+
+    //static instance for signal handler
+    static Simulator* instance_;
+    static void sig_handler(int signum);
+
+    mjModel *load_model(const char *file, mj::Simulate &sim);
+    void physics_loop(mj::Simulate &sim);
+    void physics_thread(mj::Simulate *sim, const char *filename);
+    void extractor_thread();
+
+    // Trigger storage
+    void terminate();
+};
