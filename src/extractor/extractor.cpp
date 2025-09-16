@@ -4,25 +4,38 @@ MujocoExtractor::~MujocoExtractor()
 {
 }
 
-MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helper_data)
+MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helper_data, ExtractorMode mode)
     : rclcpp::Node("mujoco_extractor_node"),
       mj_model_(model),
       mj_data_(data),
+      mode_(mode),
       helper_data_(helper_data),
       low_state_source_(),
       low_cmd_source_(data),
-      high_state_source_()
+      high_state_source_(),
+      vicon_source_("10.0.0.20")
 {
     // New data representation
     low_state_source_.subscribe(this);
     low_cmd_source_.subscribe(this);
 
-    // Subscribe topics
-    if (USE_ODOMETRY)
+    switch (mode_)
     {
-        odometry_source_.subscribe(this);
-    } else {
+    case ExtractorMode::HIGHSTATE:
+        println("Using SportStateMode for base estimation, note this is not available in the robot low state mode.");
         high_state_source_.subscribe(this);
+        break;
+    case ExtractorMode::GO2_ODOMETRY:
+        println("Using GO2_ODOMETRY for base estimation.");
+        odometry_source_.subscribe(this);
+        break;
+    case ExtractorMode::VICON:
+        println("Using VICON for base estimation.");
+        // This is not a ros topic, but we still stick to this interface
+        vicon_source_.subscribe(this);
+        break;
+    default:
+        break;
     }
 
     check_sensor();
@@ -83,13 +96,17 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
 
     std::lock_guard<std::mutex> lock(DataSourceBase::sync_mtx_);
 
-    // We use low cmd buffer as base, as it contains the most data
-    if (USE_ODOMETRY && odometry_source_.buffer().empty())
+    if (mode_ == ExtractorMode::GO2_ODOMETRY && odometry_source_.buffer().empty())
     {
         return false;
     }
 
-    if (!USE_ODOMETRY && high_state_source_.buffer().empty())
+    if (mode_ == ExtractorMode::HIGHSTATE && high_state_source_.buffer().empty())
+    {
+        return false;
+    }
+
+    if (mode_ == ExtractorMode::VICON && vicon_source_.buffer().empty())
     {
         return false;
     }
@@ -120,7 +137,7 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
     // Now get the high state
     HighStateData high_state_data;
 
-    if (!USE_ODOMETRY)
+    if (mode_ == ExtractorMode::HIGHSTATE)
     {
         auto it_high = high_state_source_.buffer().rbegin();
         while (it_high != high_state_source_.buffer().rend() && it_high->timestamp > T_ref)
@@ -138,21 +155,21 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
 
         high_state_source_.buffer().erase(high_state_source_.buffer().begin(), it_high.base() - 1);
     }
-    else // Use odometry data
+    else if (mode_ == ExtractorMode::GO2_ODOMETRY) // Use odometry data
     {
-        auto it_odometry_filtered = odometry_source_.buffer().rbegin();
-        while (it_odometry_filtered != odometry_source_.buffer().rend() && it_odometry_filtered->timestamp > T_ref)
+        auto it_odometry = odometry_source_.buffer().rbegin();
+        while (it_odometry != odometry_source_.buffer().rend() && it_odometry->timestamp > T_ref)
         {
-            ++it_odometry_filtered;
+            ++it_odometry;
         }
 
-        if (it_odometry_filtered == odometry_source_.buffer().rend())
+        if (it_odometry == odometry_source_.buffer().rend())
         {
             low_cmd_source_.buffer().pop_front();
             return false;
         }
 
-        OdometryData odometry = *it_odometry_filtered;
+        OdometryData odometry = *it_odometry;
 
         high_state_data.timestamp = T_ref;
 
@@ -176,7 +193,43 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
         match_low_state->base_ang_vel[1] = odometry.base_ang_vel[1];
         match_low_state->base_ang_vel[2] = odometry.base_ang_vel[2];
 
-        odometry_source_.buffer().erase(odometry_source_.buffer().begin(), it_odometry_filtered.base() - 1);
+        odometry_source_.buffer().erase(odometry_source_.buffer().begin(), it_odometry.base() - 1);
+    }
+    else if (mode_ == ExtractorMode::VICON) // Use VICON data
+    {
+        auto it_vicon = vicon_source_.buffer().rbegin();
+        while (it_vicon != vicon_source_.buffer().rend() && it_vicon->timestamp > T_ref)
+        {
+            ++it_vicon;
+        }
+
+        if (it_vicon == vicon_source_.buffer().rend())
+        {
+            low_cmd_source_.buffer().pop_front();
+            return false;
+        }
+
+        ViconData vicon_data = *it_vicon;
+
+        high_state_data.timestamp = T_ref;
+
+        // Store the result
+        // Base pos
+        high_state_data.base_pos[0] = vicon_data.base_pos[0];
+        high_state_data.base_pos[1] = vicon_data.base_pos[1];
+        high_state_data.base_pos[2] = vicon_data.base_pos[2];
+
+        high_state_data.base_lin_vel[0] = vicon_data.base_lin_vel[0];
+        high_state_data.base_lin_vel[1] = vicon_data.base_lin_vel[1];
+        high_state_data.base_lin_vel[2] = vicon_data.base_lin_vel[2];
+
+        // Override low state orientation with VICON data
+        match_low_state->base_quat[0] = vicon_data.orientation[3]; // w
+        match_low_state->base_quat[1] = vicon_data.orientation[0]; // x
+        match_low_state->base_quat[2] = vicon_data.orientation[1]; // y
+        match_low_state->base_quat[3] = vicon_data.orientation[2]; // z
+
+        vicon_source_.buffer().erase(vicon_source_.buffer().begin(), it_vicon.base() - 1);
     }
 
     // Insert data into mj_data

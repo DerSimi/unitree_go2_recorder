@@ -228,7 +228,7 @@ void Simulator::extractor_thread()
 
     rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 4);
 
-    extractor_node = std::make_shared<MujocoExtractor>(m_, d_, helper_data_);
+    extractor_node = std::make_shared<MujocoExtractor>(m_, d_, helper_data_, ExtractorMode::VICON);
     executor.add_node(extractor_node);
     executor.spin();
 

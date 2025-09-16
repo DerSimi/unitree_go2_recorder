@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdarg>
+#include <iostream>
+
 const std::string PREFIX = "\033[38;5;250m[\033[0m\033[38;5;45mMuJoCo Extractor\033[0m\033[38;5;250m]\033[0m";
 
 inline void println(const char *fmt, ...)
