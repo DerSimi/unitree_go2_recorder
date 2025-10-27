@@ -21,7 +21,7 @@ Supported base estimators
 - [go2_odometry](https://github.com/inria-paris-robotics-lab/go2_odometry)
 
 > **Note**  
-> Sport state mode is not available when the robot is in low state mode (e. g. if you want to record policy data). Vicon offers the highest accuracy.
+> Sport state mode is not available when the robot is in low state mode (e. g. if you want to record policy data). Vicon offers the highest accuracy. For vicon, you find more information in the `docs` folder.
 
 # 💾 Extracted Data
 The following data is stored:
