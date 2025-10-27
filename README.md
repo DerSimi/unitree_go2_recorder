@@ -69,6 +69,17 @@ Note, if you see any errors, source your unitree ros2 workspace, especially, sou
 source ~/unitree_ros2/setup.sh
 source ~/unitree_ros2/install/setup.sh
 ```
+
+Set the path to your Unitree ROS2 workspace by adding the following to your shell startup file (e.g. `~/.zshrc` or `~/.bashrc`):
+```zsh
+export GO2_ROS="$HOME/unitree_ros2"
+```
+
+Reload your shell configuration:
+```zsh
+source ~/.zshrc # or: source ~/.bashrc
+```
+
 To start the recorder, run
 ```zsh
 ./setup.sh

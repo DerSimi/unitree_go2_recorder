@@ -83,7 +83,7 @@ if [ "$manual_mode" = true ]; then
     exit 0
 fi
 
-echo "${PREFIX} This interactive script will help you getting the right command and everything else around setup for data collection."
+echo "${PREFIX} This interactive script will help you getting started."
 
 mode=""
 if [ "$manual_mode" = false ]; then
@@ -99,7 +99,7 @@ fi
 
 if [ "$estimator" = "SportModeState" ]; then
     estimator="high"
-    echo "${PREFIX} You selected SportModeState as base estimator. This is a ros topic published by the Go2 robot, but not available in the low state mode which is used when playing RL-policies."
+    echo "${PREFIX} You selected SportModeState as base estimator. This is a ros topic published by the Go2, but not available in the low state mode which is used when playing RL-policies."
 elif [ "$estimator" = "Vicon" ]; then
     estimator="vicon"
     echo "${PREFIX} You selected Vicon as base estimator. Make sure to setup the system, and configure the network."
@@ -187,8 +187,8 @@ echo "${PREFIX} The most part is done. Now, you can choose the MuJoCo model to u
 model=$(gum input --placeholder "What model do you want to use?" --value "model/scene.xml")
 echo "${PREFIX} Selected model: $model"
 
-echo "${PREFIX} And at last, provide a name for the data recording."
-data_name=$(gum input --placeholder "How should we call it? Please don't use spaces :/" --value "test.npy")
+echo "${PREFIX} And at last, provide a name for the recording."
+data_name=$(gum input --placeholder "How should we call it? Please avoid spaces :/" --value "test.npy")
 echo "${PREFIX} Data will be recorded to: output/$data_name."
 
 
