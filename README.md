@@ -1,51 +1,49 @@
 # Unitree Go2 Data Recorder
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
-![MuJoCo](https://img.shields.io/badge/ROS2-Humble-blue)
+![ROS2](https://img.shields.io/badge/ROS2-Humble-blue)
 ![MuJoCo](https://img.shields.io/badge/MuJoCo-3.2.7-blue)
 
-This project contains code to convert Unitree Go2 real-world data to MuJoCo, visualization and conversion to numpy!
+Capture and replay accurate, timestamped Unitree Go2 data for analysis and visualization using MuJoCo — compatible with NumPy and ROS2 bags.
 
 # ![Project Thumbnail](assets/thumbnail.png)
 
 # ⭐ Key Features
-- ROS2 bag compatible
-- Synchronization
-- Timestamps for each step
-- Visualization
-- Numpy compatible output format
-- Supports unitree and [go2_odometry](https://github.com/inria-paris-robotics-lab/go2_odometry) for base state estimation!
+- ROS2 bag compatible (tested on Humble)
+- Synchronized recording across topics
+- Per-step timestamps
+- Live MuJoCo visualization
+- NumPy (.npy) output format
+- Supports Unitree SportStateMode, Vicon, and go2_odometry for base estimation
+
+Supported base estimators
+- [Unitree SportStateMode](https://support.unitree.com/home/en/developer/sports_services)
+- Vicon (a camera based motion capture system).
+- [go2_odometry](https://github.com/inria-paris-robotics-lab/go2_odometry)
+
+> **Note**  
+> Sport state mode is not available when the robot is in low state mode (e. g. if you want to record policy data). Vicon offers the highest accuracy.
 
 # 💾 Extracted Data
 The following data is stored:
 Low cmd:
-- q (position, 12 motors)
-- dq (velocity, 12 motors)
-- tau (12 motors)
-- kp (12 motors)
-- kd (12 motors)
+- q - motor positions (12)
+- dq - motor velocities (12)
+- tau - torques (12)
+- kp position gains (12)
+- kd derivative gains (12)
 
 Low state:
-- quaternion
-- gyroscope
-- d (position, 12 motors)
-- dq (velocity, 12 motors)
-- tau_est (12 motors)
-- q_raw (12 motors)
-- dq_raw (12 motors)
+- quaternion (4)
+- gyroscope (3)
+- d - motor positions (12)
+- dq - motor velocities (12)
+- tau_est - estimated torques (12)
+- q_raw (12)
+- dq_raw (12)
 
-Sport state mode:
+Base estimation:
 - base position
-- base velocity
-
-> **Note**  
-> Sport state mode is not available when the robot is in low state mode (e. g. if you want to record policy data).
-
-You can replace the sport state mode by using [go2_odometry](https://github.com/inria-paris-robotics-lab/go2_odometry).
-After setting it up, in `src/extractor/extractor.h`, make sure this line is set to true:
-```c++
-#define USE_ODOMETRY true
-```
-Make sure your environment is properly sourced and use the `ROS_DOMAIN_ID` described below!
+- base velocity (not implemented for vicon)
 
 # 💻 Installation
 Don't forget to install the dependencies:
@@ -54,31 +52,36 @@ Don't forget to install the dependencies:
 - [unitree_sdk2](https://github.com/unitreerobotics/unitree_sdk2)
 - [mujoco](https://github.com/google-deepmind/mujoco) (version 3.2.7)
 - [cnpy](https://github.com/rogersce/cnpy)
-- `sudo apt install libglfw3-dev libxinerama-dev libxcursor-dev libxi-dev`
+- `sudo apt install libglfw3-dev libxinerama-dev libxcursor-dev libxi-dev libspdlog-dev`
+- [gum](https://github.com/charmbracelet/gum)
 
-Important: You must build MuJoCo from source, it is not enough to install the precompiled version!
-
-> Note: This project also contains a simple robot trajectory, written with Unitree SDK, but it uses the old method: `switchGait`. If you are interested in this,
-checkout the commit `3a4680ae9b00df59e60f7e63cfb0fcc432a9d08d` in `unitree_sdk2` before installing it.  
+> **Important**  
+> You must build MuJoCo from source, it is not enough to install the precompiled version!
 
 Make sure all dependencies are installed and available in your system path. Then build the project with:
 ```zsh
-git clone https://github.com/DerSimi/unitree_go2_to_mujoco && cd unitree_go2_to_mujoco
+git clone https://github.com/DerSimi/unitree_go2_recorder && cd unitree_go2_recorder
 mkdir build && cd build
 cmake .. && make
 ```
 Note, if you see any errors, source your unitree ros2 workspace, especially, source `setup.sh` and `install/setup.sh`.
-
-To run the extractor in the build directory:
 ```zsh
-./mujoco_extractor
+source ~/unitree_ros2/setup.sh
+source ~/unitree_ros2/install/setup.sh
 ```
+To start the recorder, run
+```zsh
+./setup.sh
+```
+in the project root (interactive), or run the built executable in `build`:
+```sh
+./go2_recorder --mode <high|vicon|go2odometry> --model <model_path> --storage <storage_path>
+```
+The recording is always stored within the output folder in the project root, so it suffices, just giving a name, like `test.npy`.
 
 # Python Installation
-
-If required, the created `.npy` file in the `build` directory can be rendered using Python.
-See `renderer/play.py` for an example of how to use the generated `.npy` file.
-
+If required, the created `.npy` file in the `storage` directory can be rendered using Python.
+See `renderer/play.py` for an example of how to use the recording.
 
 Install all Python dependencies using `uv` or a package manager of your liking:
 ```zsh
@@ -92,42 +95,41 @@ Then run the code in `renderer/play.py`:
 python renderer/play.py
 ```
 
-# Sample Data and Usage
-
-The `samples` folder contains a sample ROS2 bag file and a ready-to-use `.npy` file.
-
-The sample data was recorded using:
+# Usage
+Start the interactive setup script:
 ```zsh
-ros2 bag record /lowstate /lowcmd /sportmodestate -o recording07082
+setup.sh
+```
+The script helps you checking your setup, including the network.
+
+> **Note**  
+> Setting up the vicon network requires you to change `setup.sh`.
+
+At the top, insert your data:
+```zsh
+VICON_ETH_INTERFACE="enx34298f722bdf"
+VICON_IP="10.0.0.20"
 ```
 
-Make sure you installed [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2) and properly sourced the environment, otherwise ros can't find the topic packages.
-To get the setup working, run the following commands:
+In the lab, I used a direct ethernet link to the vicon system. Make sure, the network interface for vicon is unmanaged, otherwise it may be removed by the network manager. 
+
+# ROS2 Bags
+The recorder also supports ROS2 bags. To record, run:
+```zsh
+ros2 bag record /lowstate /lowcmd /sportmodestate -o myrecording
 ```
-source 'source ~/unitree_ros2/setup_local.sh'
-export ROS_DOMAIN_ID=1
-source ~/unitree_ros2/install/setup.sh
+
+Then start the Go2Recorder and play the bag:
+```zsh
+ros2 bag play myrecording
 ```
+> **Note**  
+> Make sure, that you use in both shells the same ROS domain.
 
-To use the sample data:
-1. Unpack the archive in the `samples` folder if needed.
-2. Start `mujoco_extractor` in a seperate terminal. Go to the build directory and run:
-	```zsh
-	./mujoco_extractor
-	```
-3. In a second terminal, play the bag file:
-	```zsh
-	ros2 bag play recording07082
-	```
-	The robot will walk in circles with varying gait cycles. When it sits down, close the MuJoCo renderer by hand. The program will then save `storage.npy` in the build folder. Do not use `Ctrl+C` to exit.
+You can test with the sample bag in the samples folder — unpack the archive first.
 
-For Python visualization:
-
-- If you created `storage.npy` yourself by playing the rosbag and running the extractor, you can run the visualization directly:
-	```zsh
-	python renderer/play.py
-	```
-- If you want to use the sample data, copy `storage.npy` from the `samples` folder into the `build` directory first, then run the same command above.
+> **Important**  
+> This applies only to SportStateMode and go2_odometry. Vicon does not publish ROS2 topics. For go2_odometry, record the topic: `/odometry/filtered`.
 
 # Details on Synchronization and Timestamp Feature
 You will notice that the recording contains a different number of messages for each relevant topic. This requires a synchronization strategy. I chose to use the topic with the most messages, which is `/lowcmd`, as the reference. The program always takes the oldest `/lowcmd` message in the buffer and searches for the closest (but not newer) messages from the other topics. 

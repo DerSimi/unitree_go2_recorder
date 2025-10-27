@@ -2,7 +2,7 @@
 VICON_ETH_INTERFACE="enx34298f722bdf"
 VICON_IP="10.0.0.20"
 
-ROBOT_IP="192.168.123.99"
+ROBOT_IP="192.168.123.99" # See https://github.com/unitreerobotics/unitree_ros2
 
 wait_animation() {
     local msg="$1"

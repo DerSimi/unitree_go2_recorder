@@ -9,7 +9,7 @@ int main(int argc, char **argv)
 
     const std::string USAGE =
     "Usage:\n"
-    "  ./mujoco_extractor --mode <high|vicon|go2odometry> --model <model_path> --storage <storage_path>\n"
+    "  ./go2_recorder --mode <high|vicon|go2odometry> --model <model_path> --storage <storage_path>\n"
     "Defaults:\n"
     "  --mode high\n"
     "  --model model/scene.xml\n"
