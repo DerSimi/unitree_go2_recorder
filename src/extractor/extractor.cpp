@@ -22,7 +22,7 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helpe
     switch (mode_)
     {
     case ExtractorMode::HIGHSTATE:
-        spdlog::info("Using SportStateMode for base estimation, note this is not available in the robot low state mode.");
+        spdlog::info("Using SportStateMode for base estimation, note this is not available in low state mode.");
         high_state_source_.subscribe(this);
         break;
     case ExtractorMode::GO2_ODOMETRY:

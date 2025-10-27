@@ -45,6 +45,8 @@ public:
     ~Simulator() = default;
 private:
     std::shared_ptr<MujocoExtractor> extractor_node;
+    
+    ExtractorMode mode_;
 
     bool use_gui_;
     std::string storage_path_;

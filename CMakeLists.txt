@@ -40,12 +40,12 @@ set(SIM_DEPENDENCIES
   cnpy
 )
 
-add_executable(mujoco_extractor
+add_executable(go2_recorder
   ${SIM_SRC}
   ${CMAKE_SOURCE_DIR}/src/main.cpp
 )
 
-target_include_directories(mujoco_extractor
+target_include_directories(go2_recorder
   PRIVATE ${CMAKE_SOURCE_DIR}/src
   PRIVATE /opt/ros/${ROS_DISTRO}/include
   PRIVATE ${tf2_msgs_INCLUDE_DIRS}
@@ -53,7 +53,7 @@ target_include_directories(mujoco_extractor
   PRIVATE ${nav_msgs_INCLUDE_DIRS}
   PRIVATE ${EIGEN3_INCLUDE_DIRS}
 )
-target_link_libraries(mujoco_extractor
+target_link_libraries(go2_recorder
   PRIVATE ${SIM_DEPENDENCIES}
   PRIVATE rclcpp::rclcpp
   PRIVATE ${tf2_msgs_LIBRARIES}
