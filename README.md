@@ -1,4 +1,4 @@
-# Unitree Go2 to MuJoCo
+# Unitree Go2 Data Recorder
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![MuJoCo](https://img.shields.io/badge/ROS2-Humble-blue)
 ![MuJoCo](https://img.shields.io/badge/MuJoCo-3.2.7-blue)
