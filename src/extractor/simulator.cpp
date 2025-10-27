@@ -28,14 +28,16 @@ void Simulator::sig_handler(int signum)
     std::raise(SIGINT);
 }
 
-Simulator::Simulator()
+Simulator::Simulator(ExtractorMode mode, std::string storage_path, std::string model_path)
 {
     instance_ = this;
+    this->storage_path_ = storage_path;
+
     // print version, check compatibility
-    println("MuJoCo version %s", mj_versionString());
+    spdlog::info("MuJoCo version {}", mj_versionString());
     if (mjVERSION_HEADER != mj_version())
     {
-        println("Headers and library have different versions");
+        spdlog::warn("MuJoCo headers and library have different versions");
     }
 
     mjvCamera cam;
@@ -52,15 +54,20 @@ Simulator::Simulator()
         std::make_unique<mj::GlfwAdapter>(),
         &cam, &opt, &pert, /* is_passive = */ false);
 
-    const char *filename = "../model/scene.xml";
-
     std::thread extractor_handle([this]()
                                  { this->extractor_thread(); });
     extractor_handle.detach();
 
+    spdlog::info("Using model: {}", model_path);
+    // Makes argument passing more convenient
+    model_path = "../" + model_path;
+
     // start physics thread
-    std::thread physics_thread_handle([this, sim = sim.get(), filename]()
-                                      { this->physics_thread(sim, filename); });
+    const char* model_path_cstr = model_path.c_str();
+    std::thread physics_thread_handle([this, sim = sim.get(), model_path_cstr]()
+    {
+        this->physics_thread(sim, model_path_cstr);
+    });
     // start simulation UI loop (blocking call)
     sim->RenderLoop();
     physics_thread_handle.join();
@@ -119,7 +126,7 @@ mjModel *Simulator::load_model(const char *file, mj::Simulate &sim)
     if (loadError[0])
     {
         // mj_forward() below will print the warning message
-        println("Model compiled, but simulation warning (paused):\n  %s\n", loadError);
+        spdlog::warn("Model compiled, but simulation warning (paused):\n  {}", loadError);
         sim.run = 0;
     }
 
@@ -208,7 +215,7 @@ void Simulator::extractor_thread()
     {
         if (d_)
         {
-            println("Simulator is ready for data.");
+            spdlog::info("Simulator is ready for data.");
             break;
         }
         usleep(500000);
@@ -239,7 +246,7 @@ void Simulator::terminate()
 {
     if (instance_)
     {
-        println("Terminate extractor...");
+        spdlog::info("Terminate extractor...");
 
         // Avoid calling terminate twice
         instance_ = nullptr;
@@ -248,7 +255,12 @@ void Simulator::terminate()
         rclcpp::shutdown();
 
         // store data
-        storage_handler_->store_data("storage.npy");
+        std::filesystem::path outdir = "../output";
+        if (!std::filesystem::exists(outdir)) {
+            std::filesystem::create_directories(outdir);
+        }
+
+        storage_handler_->store_data((outdir / this->storage_path_).c_str());
         
         std::_Exit(0);
     }

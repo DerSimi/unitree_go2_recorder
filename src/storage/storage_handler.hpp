@@ -6,6 +6,8 @@
 #include <cnpy.h>
 #include <mujoco/mujoco.h>
 
+#include <spdlog/spdlog.h>
+
 #include "common.hpp"
 
 struct helperData

@@ -15,6 +15,9 @@
 #include <rclcpp/rclcpp.hpp>
 #include <mujoco/mujoco.h>
 #include <pthread.h>
+#include <filesystem>
+
+#include <spdlog/spdlog.h>
 
 #include "mujoco/glfw_adapter.h"
 #include "mujoco/simulate.h"
@@ -38,13 +41,13 @@ namespace mju = ::mujoco::sample_util;
 class Simulator
 {
 public:
-    Simulator();
+    Simulator(ExtractorMode mode, std::string storage_path = "storage.npy", std::string model_path = "model/scene.xml");
     ~Simulator() = default;
 private:
     std::shared_ptr<MujocoExtractor> extractor_node;
 
     bool use_gui_;
-    char* storage_path_;
+    std::string storage_path_;
 
     mjModel *m_;
     mjData *d_ = nullptr;

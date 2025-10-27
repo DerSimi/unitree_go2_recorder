@@ -22,15 +22,15 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helpe
     switch (mode_)
     {
     case ExtractorMode::HIGHSTATE:
-        println("Using SportStateMode for base estimation, note this is not available in the robot low state mode.");
+        spdlog::info("Using SportStateMode for base estimation, note this is not available in the robot low state mode.");
         high_state_source_.subscribe(this);
         break;
     case ExtractorMode::GO2_ODOMETRY:
-        println("Using GO2_ODOMETRY for base estimation.");
+        spdlog::info("Using GO2_ODOMETRY for base estimation.");
         odometry_source_.subscribe(this);
         break;
     case ExtractorMode::VICON:
-        println("Using VICON for base estimation.");
+        spdlog::info("Using VICON for base estimation.");
         // This is not a ros topic, but we still stick to this interface
         vicon_source_.subscribe(this);
         break;

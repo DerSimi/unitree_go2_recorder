@@ -14,6 +14,8 @@
 
 #include <mujoco/mujoco.h>
 
+#include <spdlog/spdlog.h>
+
 #include "base/low_state/low_state.hpp"
 #include "base/low_cmd/low_cmd.hpp"
 #include "base/high_state/high_state.hpp"

@@ -35,7 +35,7 @@ void ViconDataSource::subscribe(rclcpp::Node *node)
             auto result = client_.Connect(hostname_).Result;
             if (result != ViconDataStreamSDK::CPP::Result::Success)
             {
-                println("VICON: Connection failed, retrying...");
+                spdlog::warn("Connection to vicon failed, retrying...");
                 sleep(1);
             }
         }
@@ -47,7 +47,7 @@ void ViconDataSource::subscribe(rclcpp::Node *node)
         {
             if (client_.GetFrame().Result != ViconDataStreamSDK::CPP::Result::Success)
             {
-                println("VICON: No frame received, retrying...");
+                spdlog::warn("No vicon frame received, retrying...");
                 sleep(1);
                 continue;
             }
@@ -68,7 +68,7 @@ void ViconDataSource::subscribe(rclcpp::Node *node)
             }
             else
             {
-                println("VICON: Go2_base not visible.");
+                spdlog::warn("Vicon Go2_base not visible.");
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(10));

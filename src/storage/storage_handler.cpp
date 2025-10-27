@@ -36,11 +36,11 @@ void StorageHandler::store_data(const char *filename)
 {
     if(data_.size() == 0)
     {
-        println("No data was recorded!");
+        spdlog::warn("No data was recorded!");
         return;
     }
 
-    println("Exporting %zu data points to %s...",
+    spdlog::info("Exporting {} data points to {}...",
             data_.size() / (nq_ + nv_ + nu_ + 8 * nu_), filename);
     // Write data to file
     cnpy::npz_save(filename, "state", data_);
@@ -58,4 +58,6 @@ void StorageHandler::store_data(const char *filename)
     }
 
     cnpy::npz_save(filename, "dt", dt, "a");
+
+    spdlog::info("Recording stored as {}.", filename);
 }

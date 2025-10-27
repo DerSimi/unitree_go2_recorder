@@ -5,12 +5,11 @@ project(sim2real_transfer LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-
-list(APPEND CMAKE_PREFIX_PATH "/opt/unitree_robotics/lib/cmake")
-
-find_package(mujoco      REQUIRED)  
-find_package(unitree_sdk2 REQUIRED)    
+find_package(mujoco      REQUIRED)     
 find_package(ZLIB REQUIRED)
+
+find_package(spdlog REQUIRED)
+find_package(vicon-datastream-sdk REQUIRED)
 
 # Ros stuff
 find_package(rclcpp REQUIRED)
@@ -21,8 +20,9 @@ find_package(Eigen3 REQUIRED)
 
 file(GLOB SIM_SRC
   ${CMAKE_SOURCE_DIR}/src/mujoco/*.cc
-  ${CMAKE_SOURCE_DIR}/src/extractor/*.cc
-  ${CMAKE_SOURCE_DIR}/src/storage/*.cc
+  ${CMAKE_SOURCE_DIR}/src/extractor/*.cpp
+  ${CMAKE_SOURCE_DIR}/src/storage/*.cpp
+  
   ${CMAKE_SOURCE_DIR}/src/base/*.cpp
   ${CMAKE_SOURCE_DIR}/src/base/low_state/*.cpp
   ${CMAKE_SOURCE_DIR}/src/base/low_cmd/*.cpp
@@ -42,7 +42,7 @@ set(SIM_DEPENDENCIES
 
 add_executable(mujoco_extractor
   ${SIM_SRC}
-  ${CMAKE_SOURCE_DIR}/src/main.cc
+  ${CMAKE_SOURCE_DIR}/src/main.cpp
 )
 
 target_include_directories(mujoco_extractor
@@ -60,10 +60,9 @@ target_link_libraries(mujoco_extractor
   PRIVATE ${unitree_go_LIBRARIES}
   PRIVATE ${nav_msgs_LIBRARIES}
   PRIVATE Eigen3::Eigen
+  PRIVATE vicon-datastream-sdk::ViconDataStreamSDK_CPP
+  PRIVATE spdlog::spdlog
 )
 
-# add_executable(circle_walk src/circle_walk.cc)
-
-# target_link_libraries(circle_walk PRIVATE unitree_sdk2)
-
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_BUILD_TYPE Release)

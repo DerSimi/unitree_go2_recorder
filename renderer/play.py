@@ -3,6 +3,7 @@ from einops import rearrange
 import mujoco
 import mediapy as media
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 # Setup mujoco
 model = mujoco.MjModel.from_xml_path('model/scene.xml')
@@ -43,20 +44,47 @@ dq_raw  = state[:, i : i + nu]; i += nu
 
 print(qpos.shape, qvel.shape, ctrl.shape)
 
-print("hihi", state[:, :model.nq+model.nv].shape)
-
 state_array = rearrange(state[:, :model.nq+model.nv], 'frame posvel -> 1 frame posvel')
 action_array = rearrange(state[:, model.nq+model.nv:], 'frame ctrl -> 1 frame ctrl')
 
 print("State array shape", (state_array.shape))
 print("Action array shape", (action_array.shape))
 
-# Time management
-dt_arr = data['dt']
-print("dt mean and var:", dt_arr.mean(), dt_arr.var())
+# # Time management
+# dt_arr = data['dt']
+# print("dt mean and var:", dt_arr.mean(), dt_arr.var())
 
-assert np.all(dt_arr > 0)
-dt = dt_arr.mean()
+# assert np.all(dt_arr > 0)
+# dt = dt_arr.mean()
+
+# print("qvel shape", qvel.shape)
+
+# vel_xyz = qvel[:, :3]
+# x_vel, y_vel, z_vel = vel_xyz.T 
+
+# print(x_vel.shape)
+
+# t = np.arange(len(x_vel)) * dt
+
+# drei Subplots untereinander, shared x-axis
+# fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+
+# axs[0].plot(t, x_vel, color='tab:blue')
+# axs[0].set_ylabel('v_x [m/s]')
+# axs[0].set_title('X-Velocity')
+
+# axs[1].plot(t, y_vel, color='tab:orange')
+# axs[1].set_ylabel('v_y [m/s]')
+# axs[1].set_title('Y-Velocity')
+
+# axs[2].plot(t, z_vel, color='tab:green')
+# axs[2].set_ylabel('v_z [m/s]')
+# axs[2].set_xlabel('Time [s]')
+# axs[2].set_title('Z-Velocity')
+
+# fig.tight_layout()
+# plt.savefig('build/velocity_plots.png')
+# plt.show()
 
 camera = mujoco.MjvCamera()
 
@@ -81,7 +109,7 @@ with mujoco.Renderer(model) as renderer:
         
         mujoco.mj_forward(model, mj_data)
         
-        time = time + dt
+        time = time + 0.01
         
         if len(frames) < time * framerate:
             renderer.update_scene(mj_data, camera=camera)

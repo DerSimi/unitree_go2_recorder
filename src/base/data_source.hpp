@@ -4,6 +4,8 @@
 #include <deque>
 #include <mutex>
 
+#include <spdlog/spdlog.h>
+
 #include <rclcpp/rclcpp.hpp>
 
 // Max size of all buffers used for synchronization
