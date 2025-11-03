@@ -1,5 +1,9 @@
 #!/usr/bin/env zsh
 VICON_ETH_INTERFACE="enx34298f722bdf"
+
+# This IP is your OWN computer's IP in the Vicon network
+VICON_HOST_IP="10.0.0.10"
+# This IP is the Vicon server's IP
 VICON_IP="10.0.0.20"
 
 ROBOT_IP="192.168.123.99" # See https://github.com/unitreerobotics/unitree_ros2
@@ -161,8 +165,7 @@ if [ "$mode" = "Real world data" ]; then
         else
             echo "${PREFIX} Vicon server is NOT reachable. We will attempt to set up the network interface $VICON_ETH_INTERFACE now. Make sure this network adapter is unmanaged by your network manager."
             echo "${PREFIX} For this purpose, I suggest:"
-            echo "  sudo ip addr del $VICON_IP/24 dev $VICON_ETH_INTERFACE 2>/dev/null"
-            echo "  sudo ip addr add $VICON_IP/24 dev $VICON_ETH_INTERFACE"
+            echo "  sudo ip addr add $VICON_HOST_IP/24 dev $VICON_ETH_INTERFACE"
             echo "  sudo ip link set $VICON_ETH_INTERFACE up"
 
             if ! gum confirm "Do you agree?"; then
@@ -171,8 +174,7 @@ if [ "$mode" = "Real world data" ]; then
             fi
 
             # This may ask for a password...
-            sudo ip addr del $VICON_IP/24 dev $VICON_ETH_INTERFACE 2>/dev/null
-            sudo ip addr add $VICON_IP/24 dev $VICON_ETH_INTERFACE
+            sudo ip addr add $VICON_HOST_IP/24 dev $VICON_ETH_INTERFACE
 
             sudo ip link set $VICON_ETH_INTERFACE up
 
