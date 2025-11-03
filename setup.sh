@@ -112,14 +112,17 @@ if [ "$estimator" = "" ]; then
     echo "${PREFIX} Since you are collecting simulator data, the perfect MuJoCo ground truth will be used as base estimator."
 fi
 
-wait_animation "Setting up ROS2 in $GO2_ROS..."
+echo "${PREFIX} Setting up ROS2 in $GO2_ROS..."
 echo " "
 
 if [ "$mode" = "Real world data" ]; then
     setup_ros2 1
+    unset ROS_DOMAIN_ID
 elif [ "$mode" = "Simulator data" ]; then
     estimator="high"
     setup_ros2 0
+    # To align with the unitree mujoco simulation environment, set ros doamain
+    export ROS_DOMAIN_ID=1
 fi
 
 echo " "
@@ -127,7 +130,7 @@ echo " "
 wait_animation "If the ros setup fails, terminate the script at this point!"
 
 if [ "$mode" = "Real world data" ]; then
-    wait_animation "We now continue with the network setup. Pinging the robot..."
+    wait_animation "We now continue with the network setup..."
 
     # This part checks the robot and if ros works
     echo "${PREFIX} Pinging the robot at $ROBOT_IP ..."
@@ -188,7 +191,7 @@ model=$(gum input --placeholder "What model do you want to use?" --value "model/
 echo "${PREFIX} Selected model: $model"
 
 echo "${PREFIX} And at last, provide a name for the recording."
-data_name=$(gum input --placeholder "How should we call it? Please avoid spaces :/" --value "test.npy")
+data_name=$(gum input --placeholder "How should we call it? Please avoid spaces :/" --value "storage.npy")
 echo "${PREFIX} Data will be recorded to: output/$data_name."
 
 
@@ -198,6 +201,9 @@ elif [ "$mode" = "Simulator data" ]; then
     mode="sim"
 fi
 
-echo "${PREFIX} Starting the data collection now... \n To skip the tutorial the next time, use this command: \n ./extractor.sh $mode --mode $estimator --model $model --storage $data_name"
+ORANGE="\033[38;5;208m"
+RESET="\033[0m"
+
+echo "${PREFIX} Starting the data collection now... \n To skip the tutorial the next time, use this command: \n ${ORANGE} ./setup.sh $mode --mode $estimator --model $model --storage $data_name ${RESET}"
 
 start_program --mode $estimator --model $model --storage $data_name

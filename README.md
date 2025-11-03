@@ -5,6 +5,9 @@
 
 Capture and replay accurate, timestamped Unitree Go2 data for analysis and visualization using MuJoCo — compatible with NumPy and ROS2 bags.
 
+> **Note**  
+> Data is only recorded when commands are received, either from the remote control or via ROS topic.
+
 # ![Project Thumbnail](assets/thumbnail.png)
 
 # ⭐ Key Features
@@ -112,6 +115,8 @@ Start the interactive setup script:
 setup.sh
 ```
 The script helps you checking your setup, including the network.
+
+To save your recording, just close the MuJoCo window or press Ctrl+C in the terminal.
 
 > **Note**  
 > Setting up the vicon network requires you to change `setup.sh`.

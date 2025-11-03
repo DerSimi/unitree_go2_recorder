@@ -44,26 +44,26 @@ public:
     Simulator(ExtractorMode mode, std::string storage_path = "storage.npy", std::string model_path = "model/scene.xml");
     ~Simulator() = default;
 private:
-    std::shared_ptr<MujocoExtractor> extractor_node;
-    
+    // General extractor functionality
+    std::shared_ptr<MujocoExtractor> extractor_node_;
     ExtractorMode mode_;
 
-    bool use_gui_;
     std::string storage_path_;
+    std::unique_ptr<StorageHandler> storage_handler_;
 
+    // Simulator specific
     mjModel *m_;
     mjData *d_ = nullptr;
     helperData *helper_data_; // For collecting more data
-
-    std::unique_ptr<StorageHandler> storage_handler_;
+    std::unique_ptr<mj::Simulate> sim_;
 
     //static instance for signal handler
     static Simulator* instance_;
     static void sig_handler(int signum);
 
-    mjModel *load_model(const char *file, mj::Simulate &sim);
-    void physics_loop(mj::Simulate &sim);
-    void physics_thread(mj::Simulate *sim, const char *filename);
+    mjModel *load_model(const char *file);
+    void physics_loop();
+    void physics_thread(const char *file);
     void extractor_thread();
 
     // Trigger storage

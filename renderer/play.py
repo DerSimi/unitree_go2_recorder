@@ -91,4 +91,4 @@ with mujoco.Renderer(model) as renderer:
             pixels = renderer.render()
             frames.append(pixels)
 
-media.write_video(f"build/trajectory.mp4", frames, fps=framerate)
+media.write_video(f"renderer/trajectory.mp4", frames, fps=framerate)

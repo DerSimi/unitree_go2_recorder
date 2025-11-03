@@ -23,9 +23,6 @@ void Simulator::sig_handler(int signum)
     {
         instance_->terminate();
     }
-
-    std::signal(SIGINT, SIG_DFL);
-    std::raise(SIGINT);
 }
 
 Simulator::Simulator(ExtractorMode mode, std::string storage_path, std::string model_path)
@@ -51,32 +48,30 @@ Simulator::Simulator(ExtractorMode mode, std::string storage_path, std::string m
     mjv_defaultPerturb(&pert);
 
     // simulate object encapsulates the UI
-    auto sim = std::make_unique<mj::Simulate>(
+    sim_ = std::make_unique<mj::Simulate>(
         std::make_unique<mj::GlfwAdapter>(),
         &cam, &opt, &pert, /* is_passive = */ false);
 
-    std::thread extractor_handle([this]()
-                                 { this->extractor_thread(); });
-    extractor_handle.detach();
+    std::thread extractor_handle = std::thread([this]()
+                                               { this->extractor_thread(); });
 
     spdlog::info("Using model: {}", model_path);
     // Makes argument passing more convenient
     model_path = "../" + model_path;
 
     // start physics thread
-    const char* model_path_cstr = model_path.c_str();
-    std::thread physics_thread_handle([this, sim = sim.get(), model_path_cstr]()
-    {
-        this->physics_thread(sim, model_path_cstr);
-    });
+    const char *model_path_cstr = model_path.c_str();
+    std::thread physics_thread_handle([this, model_path_cstr]()
+                                      { this->physics_thread(model_path_cstr); });
     // start simulation UI loop (blocking call)
-    sim->RenderLoop();
-    physics_thread_handle.join();
+    sim_->RenderLoop();
 
-    pthread_exit(NULL);
+    // Terminate function will kill the blocking call above, then we join the threads, game over.
+    physics_thread_handle.join();
+    extractor_handle.join();
 }
 
-mjModel *Simulator::load_model(const char *file, mj::Simulate &sim)
+mjModel *Simulator::load_model(const char *file)
 {
     // this copy is needed so that the mju::strlen call below compiles
     char filename[mj::Simulate::kMaxFilenameLength];
@@ -115,7 +110,7 @@ mjModel *Simulator::load_model(const char *file, mj::Simulate &sim)
         }
     }
 
-    mju::strcpy_arr(sim.load_error, loadError);
+    mju::strcpy_arr(sim_->load_error, loadError);
 
     if (!mnew)
     {
@@ -128,34 +123,34 @@ mjModel *Simulator::load_model(const char *file, mj::Simulate &sim)
     {
         // mj_forward() below will print the warning message
         spdlog::warn("Model compiled, but simulation warning (paused):\n  {}", loadError);
-        sim.run = 0;
+        sim_->run = 0;
     }
 
     return mnew;
 }
 
-void Simulator::physics_loop(mj::Simulate &sim)
+void Simulator::physics_loop()
 {
     // run until asked to exit
-    while (!sim.exitrequest.load())
+    while (!sim_->exitrequest.load())
     {
-        if (extractor_node)
+        if (extractor_node_)
         {
             double timestamp;
-            if (extractor_node->GetSynchronizedState(timestamp))
+            if (extractor_node_->GetSynchronizedState(timestamp))
             {
-                const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
+                const std::unique_lock<std::recursive_mutex> lock(sim_->mtx);
 
                 storage_handler_->add_state(d_, helper_data_, timestamp);
 
                 mj_forward(m_, d_);
 
-                sim.speed_changed = true;
+                sim_->speed_changed = true;
             }
         }
 
         // sleep for 1 ms or yield, to let main thread run
-        if (sim.run && sim.busywait)
+        if (sim_->run && sim_->busywait)
         {
             std::this_thread::yield();
         }
@@ -166,47 +161,45 @@ void Simulator::physics_loop(mj::Simulate &sim)
     }
 }
 
-void Simulator::physics_thread(mj::Simulate *sim, const char *filename)
+void Simulator::physics_thread(const char *file)
 {
     // request loadmodel if file given (otherwise drag-and-drop)
 
-    if (filename != nullptr)
+    if (file != nullptr)
     {
-        sim->LoadMessage(filename);
-        m_ = load_model(filename, *sim);
+        sim_->LoadMessage(file);
+        m_ = load_model(file);
         if (m_)
             d_ = mj_makeData(m_);
         if (d_)
         {
-            sim->Load(m_, d_, filename);
+            sim_->Load(m_, d_, file);
 
             // Set camera to track the robot's base_link, comment out this block to disable camera tracking
             int body_id = mj_name2id(m_, mjOBJ_BODY, "base_link");
             if (body_id != -1)
             {
-                sim->cam.type = mjCAMERA_TRACKING;
-                sim->cam.trackbodyid = body_id;
-                sim->cam.distance = 3.0;
+                sim_->cam.type = mjCAMERA_TRACKING;
+                sim_->cam.trackbodyid = body_id;
+                sim_->cam.distance = 3.0;
             }
 
             mj_forward(m_, d_);
         }
         else
         {
-            sim->LoadMessageClear();
+            sim_->LoadMessageClear();
         }
     }
     storage_handler_ = std::make_unique<StorageHandler>(m_->nq, m_->nv, m_->nu);
 
-    physics_loop(*sim);
+    physics_loop();
 
     // delete everything we allocated
     mj_deleteData(d_);
     mj_deleteModel(m_);
 
     terminate();
-
-    exit(0);
 }
 
 void Simulator::extractor_thread()
@@ -236,11 +229,9 @@ void Simulator::extractor_thread()
 
     rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 4);
 
-    extractor_node = std::make_shared<MujocoExtractor>(m_, d_, helper_data_, this->mode_);
-    executor.add_node(extractor_node);
+    extractor_node_ = std::make_shared<MujocoExtractor>(m_, d_, helper_data_, this->mode_);
+    executor.add_node(extractor_node_);
     executor.spin();
-
-    pthread_exit(NULL);
 }
 
 void Simulator::terminate()
@@ -252,17 +243,19 @@ void Simulator::terminate()
         // Avoid calling terminate twice
         instance_ = nullptr;
 
+        // Kill MuJoCo
+        sim_->exitrequest.store(true);
+
         delete helper_data_;
         rclcpp::shutdown();
 
         // store data
         std::filesystem::path outdir = "../output";
-        if (!std::filesystem::exists(outdir)) {
+        if (!std::filesystem::exists(outdir))
+        {
             std::filesystem::create_directories(outdir);
         }
 
         storage_handler_->store_data((outdir / this->storage_path_).c_str());
-        
-        std::_Exit(0);
     }
 }
