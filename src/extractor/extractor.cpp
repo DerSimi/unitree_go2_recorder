@@ -39,6 +39,8 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helpe
     }
 
     check_sensor();
+
+    spdlog::info("Save your recording by closing the MuJoCo window or pressing Ctrl+C.");
 }
 
 void MujocoExtractor::insertSynchronizedData(const LowCmdData &cmd, const LowStateData &low_state, const HighStateData &high_state)
