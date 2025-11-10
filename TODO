@@ -1,1 +1,2 @@
 - include velocity estimation into vicon
+- clean up dependencies, is unitree sdk2 still needed? Clean up CMake 
