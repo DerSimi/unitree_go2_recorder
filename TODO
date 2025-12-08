@@ -1,1 +1,4 @@
 - include velocity estimation into vicon
+- test if go2_odometry is working
+- fix bad timing
+- is uv sync sufficient? does it activate the env?

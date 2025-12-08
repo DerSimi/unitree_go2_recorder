@@ -1,0 +1,13 @@
+[project]
+name = "unitree-go2-recorder"
+version = "0.1.0"
+description = "Environment for debugging and rendering"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "einops>=0.8.1",
+    "mediapy>=1.2.4",
+    "mujoco>=3.4.0",
+    "numpy>=2.3.5",
+    "tqdm>=4.67.1",
+]

@@ -99,9 +99,12 @@ See `renderer/play.py` for an example of how to use the recording.
 
 Install all Python dependencies using `uv` or a package manager of your liking:
 ```zsh
-uv venv --python 3.12
+uv sync
+```
+
+And don't forget to activate the environment:
+```zsh
 source .venv/bin/activate
-uv pip install -r requirements.txt
 ```
 
 Then run the code in `renderer/play.py`:
