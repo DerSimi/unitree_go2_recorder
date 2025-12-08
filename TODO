@@ -2,3 +2,5 @@
 - test if go2_odometry is working
 - fix bad timing
 - is uv sync sufficient? does it activate the env?
+- add your ros module for time syncin
+- fix script bug that it does not work the first time with vicon

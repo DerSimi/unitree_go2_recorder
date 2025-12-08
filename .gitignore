@@ -2,8 +2,6 @@ build/
 output/
 .vscode/
 
-renderer/*mp4
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -263,3 +261,5 @@ __marimo__/
 # debug information files
 *.dwo
 
+
+uv.lock
