@@ -4,3 +4,10 @@
 - is uv sync sufficient? does it activate the env?
 - add your ros module for time syncin
 - fix script bug that it does not work the first time with vicon
+
+for readme.md
+- python3.10 -m venv .venv --system-site-packages
+uv pip install catkin_pkg "empy<4" lark
+- source install and run ros2 run timed_topics republish_node
+
+colcon build --packages-select timed_topics
