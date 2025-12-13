@@ -7,25 +7,27 @@ void HighStateSource::subscribe(rclcpp::Node *node)
     auto sub_opt = rclcpp::SubscriptionOptions();
     sub_opt.callback_group = callback_group;
 
-    topic_sub_ = node->create_subscription<unitree_go::msg::SportModeState>(
+    topic_sub_ = node->create_subscription<timed_topics::msg::TimedSportModeState>(
         TOPIC_HIGHSTATE, rclcpp::SensorDataQoS(),
         std::bind(&HighStateSource::callback, this, std::placeholders::_1), sub_opt);
 }
 
-void HighStateSource::callback(const unitree_go::msg::SportModeState::SharedPtr msg)
+void HighStateSource::callback(const timed_topics::msg::TimedSportModeState::SharedPtr msg)
 {
+    const unitree_go::msg::SportModeState &state = msg->state;
+
     HighStateData data;
-    data.timestamp = get_timestamp();
+    data.stamp = rclcpp::Time(msg->stamp);
 
     // position
-    data.base_pos[0] = msg->position[0];
-    data.base_pos[1] = msg->position[1];
-    data.base_pos[2] = msg->position[2];
+    data.base_pos[0] = state.position[0];
+    data.base_pos[1] = state.position[1];
+    data.base_pos[2] = state.position[2];
 
     // velocity
-    data.base_lin_vel[0] = msg->velocity[0];
-    data.base_lin_vel[1] = msg->velocity[1];
-    data.base_lin_vel[2] = msg->velocity[2];
+    data.base_lin_vel[0] = state.velocity[0];
+    data.base_lin_vel[1] = state.velocity[1];
+    data.base_lin_vel[2] = state.velocity[2];
 
     // Lock mutex and write into buffer
     {

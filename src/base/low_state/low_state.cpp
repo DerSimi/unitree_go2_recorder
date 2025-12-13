@@ -7,40 +7,42 @@ void LowStateSource::subscribe(rclcpp::Node *node)
     auto sub_opt = rclcpp::SubscriptionOptions();
     sub_opt.callback_group = callback_group;
 
-    topic_sub_ = node->create_subscription<unitree_go::msg::LowState>(
+    topic_sub_ = node->create_subscription<timed_topics::msg::TimedLowState>(
         TOPIC_LOWSTATE, rclcpp::SensorDataQoS(),
         std::bind(&LowStateSource::callback, this, std::placeholders::_1), sub_opt);
 }
 
-void LowStateSource::callback(const unitree_go::msg::LowState::SharedPtr msg)
+void LowStateSource::callback(const timed_topics::msg::TimedLowState::SharedPtr msg)
 {
+    const unitree_go::msg::LowState &state = msg->state;
+
     LowStateData data(NUM_MOTOR);
-    data.timestamp = get_timestamp();
+    data.stamp = rclcpp::Time(msg->stamp);
 
     // Rotation
-    data.base_quat[0] = msg->imu_state.quaternion[0]; // w
-    data.base_quat[1] = msg->imu_state.quaternion[1]; // x
-    data.base_quat[2] = msg->imu_state.quaternion[2]; // y
-    data.base_quat[3] = msg->imu_state.quaternion[3]; // z
+    data.base_quat[0] = state.imu_state.quaternion[0]; // w
+    data.base_quat[1] = state.imu_state.quaternion[1]; // x
+    data.base_quat[2] = state.imu_state.quaternion[2]; // y
+    data.base_quat[3] = state.imu_state.quaternion[3]; // z
 
     // Angular velocity
-    data.base_ang_vel[0] = msg->imu_state.gyroscope[0];
-    data.base_ang_vel[1] = msg->imu_state.gyroscope[1];
-    data.base_ang_vel[2] = msg->imu_state.gyroscope[2];
+    data.base_ang_vel[0] = state.imu_state.gyroscope[0];
+    data.base_ang_vel[1] = state.imu_state.gyroscope[1];
+    data.base_ang_vel[2] = state.imu_state.gyroscope[2];
 
     // Inject motor state
     for (int i = 0; i < NUM_MOTOR; i++)
     {
         // angle
-        data.qpos_joints[i] = msg->motor_state[i].q;
+        data.qpos_joints[i] = state.motor_state[i].q;
 
         // angular velocity
-        data.qvel_joints[i] = msg->motor_state[i].dq;
+        data.qvel_joints[i] = state.motor_state[i].dq;
 
         // more information to collect
-        data.tau_est[i] = msg->motor_state[i].tau_est;
-        data.q_raw[i] = msg->motor_state[i].q_raw;
-        data.dq_raw[i] = msg->motor_state[i].dq_raw;
+        data.tau_est[i] = state.motor_state[i].tau_est;
+        data.q_raw[i] = state.motor_state[i].q_raw;
+        data.dq_raw[i] = state.motor_state[i].dq_raw;
     }
 
     // Lock mutex and write into buffer

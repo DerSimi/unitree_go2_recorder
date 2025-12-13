@@ -5,14 +5,15 @@
 #include <mujoco/mujoco.h>
 
 #include "unitree_go/msg/low_state.hpp"
+#include "timed_topics/msg/timed_low_state.hpp"
 
 #include "base/data_source.hpp"
 
-#define TOPIC_LOWSTATE "/lowstate"
+#define TOPIC_LOWSTATE "/timed_lowstate"
 
 struct LowStateData
 {
-    double timestamp;
+    rclcpp::Time stamp;
     std::vector<mjtNum> qpos_joints; // 12 joint angles
     std::vector<mjtNum> qvel_joints; // 12 joint velocities
     std::vector<float> tau_est;      // 12 estimated motor torques
@@ -38,8 +39,8 @@ public:
     std::deque<LowStateData> &buffer() override { return buffer_; }
 
 private:
-    void callback(const unitree_go::msg::LowState::SharedPtr msg);
+    void callback(const timed_topics::msg::TimedLowState::SharedPtr msg);
 
-    rclcpp::Subscription<unitree_go::msg::LowState>::SharedPtr topic_sub_;
+    rclcpp::Subscription<timed_topics::msg::TimedLowState>::SharedPtr topic_sub_;
     std::deque<LowStateData> buffer_;
 };

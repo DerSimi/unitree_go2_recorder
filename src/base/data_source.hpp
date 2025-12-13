@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 
 #include <rclcpp/rclcpp.hpp>
+#include "rclcpp/time.hpp"
 
 // Max size of all buffers used for synchronization
 #define SYNC_BUFFER_MAX_SIZE 100

@@ -1,12 +1,4 @@
-// ViconDataSource: manage background thread lifetime to avoid crashes on client destruction
 #include "base/vicon/vicon.hpp"
-#include <array>
-// Standard
-#include <thread>
-#include <chrono>
-#include <iostream>
-#include <unistd.h> // for sleep
-#include <rclcpp/rclcpp.hpp>
 
 ViconDataSource::ViconDataSource(const std::string &hostname)
     : hostname_(hostname)

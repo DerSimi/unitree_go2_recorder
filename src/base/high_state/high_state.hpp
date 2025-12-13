@@ -5,14 +5,15 @@
 #include <mujoco/mujoco.h>
 
 #include "unitree_go/msg/sport_mode_state.hpp"
+#include "timed_topics/msg/timed_sport_mode_state.hpp"
 
 #include "base/data_source.hpp"
 
-#define TOPIC_HIGHSTATE "/sportmodestate"
+#define TOPIC_HIGHSTATE "/timed_sportmodestate"
 
 struct HighStateData
 {
-    double timestamp;
+    rclcpp::Time stamp;
     mjtNum base_pos[3];     // base position
     mjtNum base_lin_vel[3]; // base linear velocity
 };
@@ -24,8 +25,8 @@ public:
     std::deque<HighStateData> &buffer() override { return buffer_; }
 
 private:
-    void callback(const unitree_go::msg::SportModeState::SharedPtr msg);
+    void callback(const timed_topics::msg::TimedSportModeState::SharedPtr msg);
 
-    rclcpp::Subscription<unitree_go::msg::SportModeState>::SharedPtr topic_sub_;
+    rclcpp::Subscription<timed_topics::msg::TimedSportModeState>::SharedPtr topic_sub_;
     std::deque<HighStateData> buffer_;
 };

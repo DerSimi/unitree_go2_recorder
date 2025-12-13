@@ -7,28 +7,30 @@ void LowCmdSource::subscribe(rclcpp::Node *node)
     auto sub_opt = rclcpp::SubscriptionOptions();
     sub_opt.callback_group = callback_group;
 
-    topic_sub_ = node->create_subscription<unitree_go::msg::LowCmd>(
+    topic_sub_ = node->create_subscription<timed_topics::msg::TimedLowCmd>(
         TOPIC_LOWCMD, rclcpp::SensorDataQoS(),
         std::bind(&LowCmdSource::callback, this, std::placeholders::_1), sub_opt);
 }
 
-void LowCmdSource::callback(const unitree_go::msg::LowCmd::SharedPtr msg)
+void LowCmdSource::callback(const timed_topics::msg::TimedLowCmd::SharedPtr msg)
 {
+    const unitree_go::msg::LowCmd &state = msg->state;
+    
     LowCmdData data(NUM_MOTOR);
-    data.timestamp = get_timestamp();
+    data.stamp = rclcpp::Time(msg->stamp);
 
     for (int i = 0; i < NUM_MOTOR; i++)
     {
-        data.ctrl[i] = msg->motor_cmd[i].tau +
-                       msg->motor_cmd[i].kp * (msg->motor_cmd[i].q - data_->sensordata[i]) +
-                       msg->motor_cmd[i].kd * (msg->motor_cmd[i].dq - data_->sensordata[i + NUM_MOTOR]);
+        data.ctrl[i] = state.motor_cmd[i].tau +
+                       state.motor_cmd[i].kp * (state.motor_cmd[i].q - data_->sensordata[i]) +
+                       state.motor_cmd[i].kd * (state.motor_cmd[i].dq - data_->sensordata[i + NUM_MOTOR]);
 
         // Save additional data
-        data.q[i] = msg->motor_cmd[i].q;
-        data.dq[i] = msg->motor_cmd[i].dq;
-        data.tau[i] = msg->motor_cmd[i].tau;
-        data.kp[i] = msg->motor_cmd[i].kp;
-        data.kd[i] = msg->motor_cmd[i].kd;
+        data.q[i] = state.motor_cmd[i].q;
+        data.dq[i] = state.motor_cmd[i].dq;
+        data.tau[i] = state.motor_cmd[i].tau;
+        data.kp[i] = state.motor_cmd[i].kp;
+        data.kd[i] = state.motor_cmd[i].kd;
     }
 
     // Lock mutex and write into buffer

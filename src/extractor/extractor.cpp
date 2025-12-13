@@ -89,111 +89,111 @@ void MujocoExtractor::insertSynchronizedData(const LowCmdData &cmd, const LowSta
 // and low state entry which is closed to it, but NOT newer!
 bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
 {
-    if (!mj_data_ && have_frame_sensor_)
-        return false;
+    // if (!mj_data_ && have_frame_sensor_)
+    //     return false;
 
-    std::lock_guard<std::mutex> lock(DataSourceBase::sync_mtx_);
+    // std::lock_guard<std::mutex> lock(DataSourceBase::sync_mtx_);
 
-    if (mode_ == ExtractorMode::HIGHSTATE && high_state_source_.buffer().empty())
-    {
-        return false;
-    }
+    // if (mode_ == ExtractorMode::HIGHSTATE && high_state_source_.buffer().empty())
+    // {
+    //     return false;
+    // }
 
-    if (mode_ == ExtractorMode::VICON && vicon_source_.buffer().empty())
-    {
-        return false;
-    }
+    // if (mode_ == ExtractorMode::VICON && vicon_source_.buffer().empty())
+    // {
+    //     return false;
+    // }
 
-    if (low_cmd_source_.buffer().empty() || low_state_source_.buffer().empty())
-    {
-        return false;
-    }
+    // if (low_cmd_source_.buffer().empty() || low_state_source_.buffer().empty())
+    // {
+    //     return false;
+    // }
 
-    const auto &ref_low_cmd = low_cmd_source_.buffer().front();
-    double T_ref = ref_low_cmd.timestamp;
+    // const auto &ref_low_cmd = low_cmd_source_.buffer().front();
+    // double T_ref = ref_low_cmd.timestamp;
 
-    // Get the low state first
-    auto it_low = low_state_source_.buffer().rbegin();
-    while (it_low != low_state_source_.buffer().rend() && it_low->timestamp > T_ref)
-    {
-        ++it_low;
-    }
+    // // Get the low state first
+    // auto it_low = low_state_source_.buffer().rbegin();
+    // while (it_low != low_state_source_.buffer().rend() && it_low->timestamp > T_ref)
+    // {
+    //     ++it_low;
+    // }
 
-    if (it_low == low_state_source_.buffer().rend())
-    {
-        low_cmd_source_.buffer().pop_front();
-        return false;
-    }
+    // if (it_low == low_state_source_.buffer().rend())
+    // {
+    //     low_cmd_source_.buffer().pop_front();
+    //     return false;
+    // }
 
-    LowStateData *match_low_state = &(*it_low);
+    // LowStateData *match_low_state = &(*it_low);
 
-    // Now get the high state
-    HighStateData high_state_data;
+    // // Now get the high state
+    // HighStateData high_state_data;
 
-    if (mode_ == ExtractorMode::HIGHSTATE)
-    {
-        auto it_high = high_state_source_.buffer().rbegin();
-        while (it_high != high_state_source_.buffer().rend() && it_high->timestamp > T_ref)
-        {
-            ++it_high;
-        }
+    // if (mode_ == ExtractorMode::HIGHSTATE)
+    // {
+    //     auto it_high = high_state_source_.buffer().rbegin();
+    //     while (it_high != high_state_source_.buffer().rend() && it_high->timestamp > T_ref)
+    //     {
+    //         ++it_high;
+    //     }
 
-        if (it_high == high_state_source_.buffer().rend())
-        {
-            low_cmd_source_.buffer().pop_front();
-            return false;
-        }
+    //     if (it_high == high_state_source_.buffer().rend())
+    //     {
+    //         low_cmd_source_.buffer().pop_front();
+    //         return false;
+    //     }
 
-        high_state_data = *it_high;
+    //     high_state_data = *it_high;
 
-        high_state_source_.buffer().erase(high_state_source_.buffer().begin(), it_high.base() - 1);
-    }
-    else if (mode_ == ExtractorMode::VICON) // Use VICON data
-    {
-        auto it_vicon = vicon_source_.buffer().rbegin();
-        while (it_vicon != vicon_source_.buffer().rend() && it_vicon->timestamp > T_ref)
-        {
-            ++it_vicon;
-        }
+    //     high_state_source_.buffer().erase(high_state_source_.buffer().begin(), it_high.base() - 1);
+    // }
+    // else if (mode_ == ExtractorMode::VICON) // Use VICON data
+    // {
+    //     auto it_vicon = vicon_source_.buffer().rbegin();
+    //     while (it_vicon != vicon_source_.buffer().rend() && it_vicon->timestamp > T_ref)
+    //     {
+    //         ++it_vicon;
+    //     }
 
-        if (it_vicon == vicon_source_.buffer().rend())
-        {
-            low_cmd_source_.buffer().pop_front();
-            return false;
-        }
+    //     if (it_vicon == vicon_source_.buffer().rend())
+    //     {
+    //         low_cmd_source_.buffer().pop_front();
+    //         return false;
+    //     }
 
-        ViconData vicon_data = *it_vicon;
+    //     ViconData vicon_data = *it_vicon;
 
-        high_state_data.timestamp = T_ref;
+    //     high_state_data.timestamp = T_ref;
 
-        // Store the result
-        // Base pos
-        high_state_data.base_pos[0] = vicon_data.base_pos[0];
-        high_state_data.base_pos[1] = vicon_data.base_pos[1];
-        high_state_data.base_pos[2] = vicon_data.base_pos[2];
+    //     // Store the result
+    //     // Base pos
+    //     high_state_data.base_pos[0] = vicon_data.base_pos[0];
+    //     high_state_data.base_pos[1] = vicon_data.base_pos[1];
+    //     high_state_data.base_pos[2] = vicon_data.base_pos[2];
 
-        high_state_data.base_lin_vel[0] = vicon_data.base_lin_vel[0];
-        high_state_data.base_lin_vel[1] = vicon_data.base_lin_vel[1];
-        high_state_data.base_lin_vel[2] = vicon_data.base_lin_vel[2];
+    //     high_state_data.base_lin_vel[0] = vicon_data.base_lin_vel[0];
+    //     high_state_data.base_lin_vel[1] = vicon_data.base_lin_vel[1];
+    //     high_state_data.base_lin_vel[2] = vicon_data.base_lin_vel[2];
 
-        // Override low state orientation with VICON data
-        match_low_state->base_quat[0] = vicon_data.orientation[3]; // w
-        match_low_state->base_quat[1] = vicon_data.orientation[0]; // x
-        match_low_state->base_quat[2] = vicon_data.orientation[1]; // y
-        match_low_state->base_quat[3] = vicon_data.orientation[2]; // z
+    //     // Override low state orientation with VICON data
+    //     match_low_state->base_quat[0] = vicon_data.orientation[3]; // w
+    //     match_low_state->base_quat[1] = vicon_data.orientation[0]; // x
+    //     match_low_state->base_quat[2] = vicon_data.orientation[1]; // y
+    //     match_low_state->base_quat[3] = vicon_data.orientation[2]; // z
 
-        vicon_source_.buffer().erase(vicon_source_.buffer().begin(), it_vicon.base() - 1);
-    }
+    //     vicon_source_.buffer().erase(vicon_source_.buffer().begin(), it_vicon.base() - 1);
+    // }
 
-    // Insert data into mj_data
-    insertSynchronizedData(ref_low_cmd, *match_low_state, high_state_data);
+    // // Insert data into mj_data
+    // insertSynchronizedData(ref_low_cmd, *match_low_state, high_state_data);
 
-    out_timestamp = T_ref;
-    low_cmd_source_.buffer().pop_front();
+    // out_timestamp = T_ref;
+    // low_cmd_source_.buffer().pop_front();
 
-    low_state_source_.buffer().erase(low_state_source_.buffer().begin(), it_low.base() - 1);
+    // low_state_source_.buffer().erase(low_state_source_.buffer().begin(), it_low.base() - 1);
 
-    return true;
+    return false;
 }
 
 void MujocoExtractor::check_sensor()

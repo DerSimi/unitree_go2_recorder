@@ -5,14 +5,15 @@
 #include <mujoco/mujoco.h>
 
 #include "unitree_go/msg/low_cmd.hpp"
+#include "timed_topics/msg/timed_low_cmd.hpp"
 
 #include "base/data_source.hpp"
 
-#define TOPIC_LOWCMD "/lowcmd"
+#define TOPIC_LOWCMD "/timed_lowcmd"
 
 struct LowCmdData
 {
-    double timestamp;
+    rclcpp::Time stamp;
     std::vector<mjtNum> ctrl;
     std::vector<float> q;
     std::vector<float> dq;
@@ -39,9 +40,9 @@ public:
     std::deque<LowCmdData> &buffer() override { return buffer_; }
 
 private:
-    void callback(const unitree_go::msg::LowCmd::SharedPtr msg);
+    void callback(const timed_topics::msg::TimedLowCmd::SharedPtr msg);
 
-    rclcpp::Subscription<unitree_go::msg::LowCmd>::SharedPtr topic_sub_;
+    rclcpp::Subscription<timed_topics::msg::TimedLowCmd>::SharedPtr topic_sub_;
     std::deque<LowCmdData> buffer_;
     mjData *data_;
 };
