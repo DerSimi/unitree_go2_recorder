@@ -25,10 +25,6 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helpe
         spdlog::info("Using SportStateMode for base estimation, note this is not available in low state mode.");
         high_state_source_.subscribe(this);
         break;
-    case ExtractorMode::GO2_ODOMETRY:
-        spdlog::info("Using GO2_ODOMETRY for base estimation.");
-        odometry_source_.subscribe(this);
-        break;
     case ExtractorMode::VICON:
         spdlog::info("Using VICON for base estimation.");
         // This is not a ros topic, but we still stick to this interface
@@ -98,11 +94,6 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
 
     std::lock_guard<std::mutex> lock(DataSourceBase::sync_mtx_);
 
-    if (mode_ == ExtractorMode::GO2_ODOMETRY && odometry_source_.buffer().empty())
-    {
-        return false;
-    }
-
     if (mode_ == ExtractorMode::HIGHSTATE && high_state_source_.buffer().empty())
     {
         return false;
@@ -156,46 +147,6 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
         high_state_data = *it_high;
 
         high_state_source_.buffer().erase(high_state_source_.buffer().begin(), it_high.base() - 1);
-    }
-    else if (mode_ == ExtractorMode::GO2_ODOMETRY) // Use odometry data
-    {
-        auto it_odometry = odometry_source_.buffer().rbegin();
-        while (it_odometry != odometry_source_.buffer().rend() && it_odometry->timestamp > T_ref)
-        {
-            ++it_odometry;
-        }
-
-        if (it_odometry == odometry_source_.buffer().rend())
-        {
-            low_cmd_source_.buffer().pop_front();
-            return false;
-        }
-
-        OdometryData odometry = *it_odometry;
-
-        high_state_data.timestamp = T_ref;
-
-        // Store the result
-        // Base pos
-        high_state_data.base_pos[0] = odometry.base_pos[0];
-        high_state_data.base_pos[1] = odometry.base_pos[1];
-        high_state_data.base_pos[2] = odometry.base_pos[2] + ODOMETRY_Z_OFFSET;
-        // Lin velocity
-        high_state_data.base_lin_vel[0] = odometry.base_lin_vel[0];
-        high_state_data.base_lin_vel[1] = odometry.base_lin_vel[1];
-        high_state_data.base_lin_vel[2] = odometry.base_lin_vel[2];
-
-        // Override low state orientation and angular velocity with odometry data
-        match_low_state->base_quat[0] = odometry.base_quat[0];
-        match_low_state->base_quat[1] = odometry.base_quat[1];
-        match_low_state->base_quat[2] = odometry.base_quat[2];
-        match_low_state->base_quat[3] = odometry.base_quat[3];
-
-        match_low_state->base_ang_vel[0] = odometry.base_ang_vel[0];
-        match_low_state->base_ang_vel[1] = odometry.base_ang_vel[1];
-        match_low_state->base_ang_vel[2] = odometry.base_ang_vel[2];
-
-        odometry_source_.buffer().erase(odometry_source_.buffer().begin(), it_odometry.base() - 1);
     }
     else if (mode_ == ExtractorMode::VICON) // Use VICON data
     {

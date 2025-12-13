@@ -19,7 +19,6 @@
 #include "base/low_state/low_state.hpp"
 #include "base/low_cmd/low_cmd.hpp"
 #include "base/high_state/high_state.hpp"
-#include "base/go2_odometry/go2_odometry.hpp"
 #include "base/vicon/vicon.hpp"
 
 #include "storage/storage_handler.hpp"
@@ -33,7 +32,6 @@ using namespace std;
 
 enum class ExtractorMode {
     HIGHSTATE,
-    GO2_ODOMETRY,
     VICON
 };
 
@@ -50,7 +48,6 @@ private:
     LowStateSource low_state_source_;
     LowCmdSource low_cmd_source_;
     HighStateSource high_state_source_;
-    OdometrySource odometry_source_;
     ViconDataSource vicon_source_;
 
     mjData *mj_data_;

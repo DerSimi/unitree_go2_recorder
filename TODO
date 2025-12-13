@@ -8,6 +8,7 @@
 for readme.md
 - python3.10 -m venv .venv --system-site-packages
 uv pip install catkin_pkg "empy<4" lark
-- source install and run ros2 run timed_topics republish_node
+- source install and 
+ros2 run timed_topics republish_node
 
 colcon build --packages-select timed_topics
