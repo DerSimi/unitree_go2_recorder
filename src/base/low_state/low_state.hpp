@@ -43,4 +43,7 @@ private:
 
     rclcpp::Subscription<timed_topics::msg::TimedLowState>::SharedPtr topic_sub_;
     std::deque<LowStateData> buffer_;
+
+public:
+    bool get_closest_match(rclcpp::Time &time, LowStateData *res);
 };

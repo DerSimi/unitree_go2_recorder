@@ -41,8 +41,12 @@ public:
 
 private:
     void callback(const timed_topics::msg::TimedLowCmd::SharedPtr msg);
-
+    
     rclcpp::Subscription<timed_topics::msg::TimedLowCmd>::SharedPtr topic_sub_;
     std::deque<LowCmdData> buffer_;
     mjData *data_;
+    
+public:
+    bool get_closest_match(rclcpp::Time &time, LowCmdData *res);
+
 };

@@ -2,20 +2,23 @@
 
 MujocoExtractor::~MujocoExtractor()
 {
+    running_ = false;
+    if (sync_thread_.joinable())
+        sync_thread_.join();
 }
 
-MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helper_data, ExtractorMode mode)
+MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, ExtractorMode mode, StorageHandler* storage_handler)
     : rclcpp::Node("mujoco_extractor_node"),
       mj_model_(model),
       mj_data_(data),
       mode_(mode),
-      helper_data_(helper_data),
+      storage_handler_(storage_handler),
       low_state_source_(),
       low_cmd_source_(data),
       high_state_source_(),
       vicon_source_("10.0.0.20")
 {
-    // New data representation
+    // New state representation
     low_state_source_.subscribe(this);
     low_cmd_source_.subscribe(this);
 
@@ -33,6 +36,16 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helpe
     default:
         break;
     }
+
+    sync_thread_ = std::thread([this]() {
+        using namespace std::chrono;
+        auto next = steady_clock::now();
+        while (running_) {
+            sync();
+            next += milliseconds(2);
+            std::this_thread::sleep_until(next);
+        }
+    });
 
     check_sensor();
 
@@ -69,26 +82,25 @@ void MujocoExtractor::insertSynchronizedData(const LowCmdData &cmd, const LowSta
     }
 
     // Write back helper data
-    for (int i = 0; i < num_motor_; i++)
-    {
-        // Low command
-        helper_data_->q[i] = cmd.q[i];
-        helper_data_->dq[i] = cmd.dq[i];
-        helper_data_->tau[i] = cmd.tau[i];
-        helper_data_->kp[i] = cmd.kp[i];
-        helper_data_->kd[i] = cmd.kd[i];
+    // for (int i = 0; i < num_motor_; i++)
+    // {
+    //     // Low command
+    //     helper_data_->q[i] = cmd.q[i];
+    //     helper_data_->dq[i] = cmd.dq[i];
+    //     helper_data_->tau[i] = cmd.tau[i];
+    //     helper_data_->kp[i] = cmd.kp[i];
+    //     helper_data_->kd[i] = cmd.kd[i];
 
-        // Low state
-        helper_data_->tau_est[i] = low_state.tau_est[i];
-        helper_data_->q_raw[i] = low_state.q_raw[i];
-        helper_data_->dq_raw[i] = low_state.dq_raw[i];
-    }
+    //     // Low state
+    //     helper_data_->tau_est[i] = low_state.tau_est[i];
+    //     helper_data_->q_raw[i] = low_state.q_raw[i];
+    //     helper_data_->dq_raw[i] = low_state.dq_raw[i];
+    // }
 }
 
-// Synchronization logic: First choose the oldest low cmd entry, and then choose the corresponding high
-// and low state entry which is closed to it, but NOT newer!
-bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
+bool MujocoExtractor::get_rendering_state()
 {
+    return false;
     // if (!mj_data_ && have_frame_sensor_)
     //     return false;
 
@@ -108,6 +120,8 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
     // {
     //     return false;
     // }
+
+    // if you now go for the oldest lowststate,
 
     // const auto &ref_low_cmd = low_cmd_source_.buffer().front();
     // double T_ref = ref_low_cmd.timestamp;
@@ -195,6 +209,64 @@ bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
 
     return false;
 }
+
+void MujocoExtractor::sync()
+{
+    if (!mj_data_ && have_frame_sensor_)
+        return;
+
+    // lock sync_mtx_
+    std::lock_guard<std::mutex> lock(DataSourceBase::sync_mtx_);
+
+    if (mode_ == ExtractorMode::HIGHSTATE && high_state_source_.buffer().empty())
+    {
+        return;
+    }
+
+    if (mode_ == ExtractorMode::VICON && vicon_source_.buffer().empty())
+    {
+        return;
+    }
+
+    if (low_cmd_source_.buffer().empty() || low_state_source_.buffer().empty())
+    {
+        return;
+    }
+    //1. Get oldes low_state
+
+    // Remove the oldest, we don't want buffer overflows in the lowstate, 
+    // but we don't care if it happens for the other states, as they are most of the time slower
+    // we need to make sure to find a matching partner.
+    LowStateData& oldest = low_state_source_.buffer().front();
+    low_state_source_.buffer().pop_front();
+    
+    //2. Get the closest low_cmd in terms of time,
+    LowCmdData cmd_data(NUM_MOTOR);
+    low_cmd_source_.get_closest_match(oldest.stamp, &cmd_data);
+
+    HighStateData high_state_data;
+
+    //3. Get the closest vicon or high state
+    if(mode_ == ExtractorMode::VICON) 
+    { // Vicon
+        ViconData vicon_data;
+        // This will interpolate position, orientaton
+        vicon_source_.get_closest_match(oldest.stamp, &vicon_data);
+
+        high_state_data.stamp = oldest.stamp;
+        high_state_data.base_pos[0] = vicon_data.base_pos[0];
+        high_state_data.base_pos[1] = vicon_data.base_pos[1];
+        high_state_data.base_pos[2] = vicon_data.base_pos[2];
+
+        high_state_data.base_lin_vel[0] = vicon_data.world_lin_vel[0];
+        high_state_data.base_lin_vel[1] = vicon_data.world_lin_vel[1];
+        high_state_data.base_lin_vel[2] = vicon_data.world_lin_vel[2];
+    } else { // SportModeState
+        high_state_source_.get_closest_match(oldest.stamp, &high_state_data);
+    }
+
+
+} // free sync_mtx_
 
 void MujocoExtractor::check_sensor()
 {

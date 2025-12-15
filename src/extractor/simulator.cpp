@@ -135,19 +135,15 @@ void Simulator::physics_loop()
     while (!sim_->exitrequest.load())
     {
         if (extractor_node_)
-        {
-            double timestamp;
-            if (extractor_node_->GetSynchronizedState(timestamp))
+        { // lock sim mutex
+            const std::unique_lock<std::recursive_mutex> lock(sim_->mtx);
+            if (extractor_node_->get_rendering_state())
             {
-                const std::unique_lock<std::recursive_mutex> lock(sim_->mtx);
-
-                storage_handler_->add_state(d_, helper_data_, timestamp);
-
+                //get_rendering_state will overwrite d_.
                 mj_forward(m_, d_);
-
                 sim_->speed_changed = true;
             }
-        }
+        } // unlock sim mutex
 
         // sleep for 1 ms or yield, to let main thread run
         if (sim_->run && sim_->busywait)
@@ -191,7 +187,6 @@ void Simulator::physics_thread(const char *file)
             sim_->LoadMessageClear();
         }
     }
-    storage_handler_ = std::make_unique<StorageHandler>(m_->nq, m_->nv, m_->nu);
 
     physics_loop();
 
@@ -215,8 +210,6 @@ void Simulator::extractor_thread()
         usleep(500000);
     }
 
-    helper_data_ = new helperData(m_->nu);
-
     // Init ros
     rclcpp::init(0, nullptr);
 
@@ -227,9 +220,11 @@ void Simulator::extractor_thread()
     rclcpp::QoS qos(1); // Queue 1
     qos.best_effort();
 
+    storage_handler_ = std::make_unique<StorageHandler>(m_->nq, m_->nv, m_->nu);
+
     rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 4);
 
-    extractor_node_ = std::make_shared<MujocoExtractor>(m_, d_, helper_data_, this->mode_);
+    extractor_node_ = std::make_shared<MujocoExtractor>(m_, d_, this->mode_, storage_handler_.get());
     executor.add_node(extractor_node_);
     executor.spin();
 }
@@ -246,7 +241,6 @@ void Simulator::terminate()
         // Kill MuJoCo
         sim_->exitrequest.store(true);
 
-        delete helper_data_;
         rclcpp::shutdown();
 
         // store data

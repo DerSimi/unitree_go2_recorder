@@ -3,6 +3,8 @@
 #include <iostream>
 #include <deque>
 #include <chrono>
+#include <thread>
+#include <atomic>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -38,10 +40,14 @@ enum class ExtractorMode {
 class MujocoExtractor : public rclcpp::Node
 {
 public:
-    MujocoExtractor(mjModel *model, mjData *data, helperData *helper_data, ExtractorMode mode);
+    MujocoExtractor(mjModel *model, mjData *data, ExtractorMode mode, StorageHandler* storage_handler);
     ~MujocoExtractor();
 
-    bool GetSynchronizedState(double &out_timestamp);
+    // This function is only triggered for visualization.
+    bool get_rendering_state();
+    // ... it relies on the data being stored by store_data, which is triggered independently
+    // to avoid interference by simulation.
+    void sync();
 
 private:
     // Data sources
@@ -53,9 +59,12 @@ private:
     mjData *mj_data_;
     mjModel *mj_model_;
 
-    helperData *helper_data_;
-
     ExtractorMode mode_;
+
+    StorageHandler *storage_handler_;
+
+    std::thread sync_thread_;
+    std::atomic<bool> running_{true};
 
     int num_motor_ = 0;
     int dim_motor_sensor_ = 0;

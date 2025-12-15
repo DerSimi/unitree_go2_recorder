@@ -56,3 +56,8 @@ void LowStateSource::callback(const timed_topics::msg::TimedLowState::SharedPtr 
         }
     } // Free mutex
 }
+
+bool LowStateSource::get_closest_match(rclcpp::Time &time, LowStateData *res)
+{
+    NOT_IMPLEMENTED;
+}

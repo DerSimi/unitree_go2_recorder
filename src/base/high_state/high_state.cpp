@@ -40,3 +40,25 @@ void HighStateSource::callback(const timed_topics::msg::TimedSportModeState::Sha
         }
     } // Free mutex
 }
+
+bool HighStateSource::get_closest_match(rclcpp::Time &time, HighStateData *res)
+{
+    if (buffer_.empty())
+        return false;
+
+    auto closest_it = buffer_.begin();
+    auto min_dt = std::abs((closest_it->stamp - time).nanoseconds());
+
+    for (auto it = buffer_.begin(); it != buffer_.end(); ++it)
+    {
+        auto dt = std::abs((it->stamp - time).nanoseconds());
+        if (dt < min_dt)
+        {
+            min_dt = dt;
+            closest_it = it;
+        }
+    }
+
+    *res = *closest_it;
+    return true;
+}

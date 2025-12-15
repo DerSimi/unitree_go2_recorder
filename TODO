@@ -15,3 +15,6 @@ colcon build --packages-select timed_topics
 
 extend documentation with:
 https://github.com/intelligent-soft-robots/vicon-datastream-sdk
+
+1. Seperate rendering and data storing,
+data storing is now triggered by lowstate

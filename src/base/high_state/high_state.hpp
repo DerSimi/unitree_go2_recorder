@@ -20,13 +20,14 @@ struct HighStateData
 
 class HighStateSource : public DataSource<HighStateData>
 {
-public:
-    void subscribe(rclcpp::Node *node) override;
-    std::deque<HighStateData> &buffer() override { return buffer_; }
-
 private:
     void callback(const timed_topics::msg::TimedSportModeState::SharedPtr msg);
 
     rclcpp::Subscription<timed_topics::msg::TimedSportModeState>::SharedPtr topic_sub_;
     std::deque<HighStateData> buffer_;
+
+public:
+    void subscribe(rclcpp::Node *node) override;
+    std::deque<HighStateData> &buffer() override { return buffer_; }
+    bool get_closest_match(rclcpp::Time &time, HighStateData *res);
 };

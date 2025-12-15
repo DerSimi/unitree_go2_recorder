@@ -6,14 +6,18 @@
 
 #include <spdlog/spdlog.h>
 
+#include <Eigen/Geometry>
+
 #include <rclcpp/rclcpp.hpp>
 #include "rclcpp/time.hpp"
 
 // Max size of all buffers used for synchronization
-#define SYNC_BUFFER_MAX_SIZE 100
+#define SYNC_BUFFER_MAX_SIZE 20
 
 // Robot constants
 #define NUM_MOTOR 12
+
+#define NOT_IMPLEMENTED throw std::logic_error("Not implemented")
 
 // Base synchronization mutex for all data sources
 class DataSourceBase
@@ -29,11 +33,37 @@ public:
   virtual ~DataSource() = default;
   virtual void subscribe(rclcpp::Node *node) = 0;
   virtual std::deque<T> &buffer() = 0;
+  virtual void get_closest_match(rclcpp::Time &time, void *res);
 };
 
-// Small helper functions
-inline double get_timestamp()
+inline double interpolate_time(const rclcpp::Time &t_1, const rclcpp::Time &t_2, double y_1, double y_2, const rclcpp::Time &at)
 {
-    auto now = std::chrono::system_clock::now();
-    return std::chrono::duration<double>(now.time_since_epoch()).count();
+  auto dt_total = t_2 - t_1;
+  auto dt_at = at - t_1;
+
+  int64_t ns_total = dt_total.nanoseconds();
+
+  if (ns_total == 0)
+    return y_1;
+
+  double ratio = static_cast<double>(dt_at.nanoseconds()) / static_cast<double>(ns_total);
+
+  return y_1 + (y_2 - y_1) * ratio;
+}
+
+inline void interpolate_quat(const rclcpp::Time &t_1, rclcpp::Time &t_2, const Eigen::Quaterniond &quat_1, const Eigen::Quaterniond &quat_2, const rclcpp::Time &at, Eigen::Quaterniond &res)
+{
+  auto dt_total = t_2 - t_1;
+  int64_t ns_total = dt_total.nanoseconds();
+
+  if (ns_total == 0)
+  {
+    res = quat_1;
+    return;
+  }
+
+  auto dt_at = at - t_1;
+
+  double ratio = static_cast<double>(dt_at.nanoseconds()) / static_cast<double>(ns_total);
+  res = quat_1.slerp(ratio, quat_2);
 }
