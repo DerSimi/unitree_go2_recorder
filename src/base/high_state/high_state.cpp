@@ -41,8 +41,9 @@ void HighStateSource::callback(const timed_topics::msg::TimedSportModeState::Sha
     } // Free mutex
 }
 
-bool HighStateSource::get_closest_match(rclcpp::Time &time, HighStateData *res)
+bool HighStateSource::get_closest_match(rclcpp::Time &time, void *res)
 {
+    HighStateData *highstate_res = static_cast<HighStateData *>(res);
     if (buffer_.empty())
         return false;
 
@@ -59,6 +60,6 @@ bool HighStateSource::get_closest_match(rclcpp::Time &time, HighStateData *res)
         }
     }
 
-    *res = *closest_it;
+    *highstate_res = *closest_it;
     return true;
 }

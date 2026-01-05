@@ -10,30 +10,9 @@
 
 #include "common.hpp"
 
-struct helperData
-{
-    std::vector<float> tau_est;
-    std::vector<float> q_raw;
-    std::vector<float> dq_raw;
-
-    std::vector<float> q;
-    std::vector<float> dq;
-    std::vector<float> tau;
-    std::vector<float> kp;
-    std::vector<float> kd;
-
-    helperData(size_t size = 0)
-    {
-        tau_est.resize(size);
-        q_raw.resize(size);
-        dq_raw.resize(size);
-        q.resize(size);
-        dq.resize(size);
-        tau.resize(size);
-        kp.resize(size);
-        kd.resize(size);
-    }
-};
+#include "base/low_state/low_state.hpp"
+#include "base/low_cmd/low_cmd.hpp"
+#include "base/high_state/high_state.hpp"
 
 class StorageHandler
 {
@@ -49,7 +28,7 @@ public:
     ~StorageHandler();
 
     // add mujoco state to the storage buffer
-    void add_state(const mjData *data, const helperData *helper_data, double timestamp = 0.0);
+    void add_state(const LowStateData* low_state_data, const LowCmdData* low_cmd_data, const HighStateData* high_state_data, double timestamp);
 
     // write data to file
     void store_data(const char *filename);

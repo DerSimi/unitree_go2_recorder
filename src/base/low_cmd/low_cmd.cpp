@@ -19,8 +19,12 @@ void LowCmdSource::callback(const timed_topics::msg::TimedLowCmd::SharedPtr msg)
     LowCmdData data(NUM_MOTOR);
     data.stamp = rclcpp::Time(msg->stamp);
 
+    // Need to lock already here, because the loop accesses data_...
+    std::lock_guard<std::mutex> lock(DataSourceBase::sync_mtx_);
+
     for (int i = 0; i < NUM_MOTOR; i++)
     {
+        // You use simulation data to compute the control command??? Possible race condition...
         data.ctrl[i] = state.motor_cmd[i].tau +
                        state.motor_cmd[i].kp * (state.motor_cmd[i].q - data_->sensordata[i]) +
                        state.motor_cmd[i].kd * (state.motor_cmd[i].dq - data_->sensordata[i + NUM_MOTOR]);
@@ -33,20 +37,17 @@ void LowCmdSource::callback(const timed_topics::msg::TimedLowCmd::SharedPtr msg)
         data.kd[i] = state.motor_cmd[i].kd;
     }
 
-    // Lock mutex and write into buffer
-    {
-        std::lock_guard<std::mutex> lock(DataSourceBase::sync_mtx_);
-        buffer_.push_back(data);
+    buffer_.push_back(data);
 
-        if (buffer_.size() > SYNC_BUFFER_MAX_SIZE)
-        {
-            buffer_.pop_front();
-        }
-    } // Free mutex
+    if (buffer_.size() > SYNC_BUFFER_MAX_SIZE)
+    {
+        buffer_.pop_front();
+    }
 }
 
-bool LowCmdSource::get_closest_match(rclcpp::Time &time, LowCmdData *res)
+bool LowCmdSource::get_closest_match(rclcpp::Time &time, void *res)
 {
+    LowCmdData *lowcmd_res = static_cast<LowCmdData *>(res);
     if (buffer_.empty())
         return false;
 
@@ -63,6 +64,6 @@ bool LowCmdSource::get_closest_match(rclcpp::Time &time, LowCmdData *res)
         }
     }
 
-    *res = *closest_it;
+    *lowcmd_res = *closest_it;
     return true;
 }

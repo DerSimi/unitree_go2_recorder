@@ -49,5 +49,5 @@ public:
     std::deque<ViconData> &buffer() override { return buffer_; }
     // Returns the interpolated step:
     // Searches for the two vicon steps between the stamp, and interpolates the position change in that timeframe.
-    bool get_closest_match(rclcpp::Time &time, ViconData *res);
+    bool get_closest_match(rclcpp::Time &time, void *res);
 };

@@ -45,5 +45,5 @@ private:
     std::deque<LowStateData> buffer_;
 
 public:
-    bool get_closest_match(rclcpp::Time &time, LowStateData *res);
+    bool get_closest_match(rclcpp::Time &time, void *res);
 };

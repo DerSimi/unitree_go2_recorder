@@ -117,8 +117,10 @@ void ViconDataSource::callback(const std::array<double, 3> &position, const std:
     }
 } // Free mutex
 
-bool ViconDataSource::get_closest_match(rclcpp::Time &time, ViconData *res)
+bool ViconDataSource::get_closest_match(rclcpp::Time &time, void *res)
 {
+    ViconData *vicon_res = static_cast<ViconData *>(res);
+
     if (buffer_.size() < 2)
         return false;
 
@@ -159,19 +161,18 @@ bool ViconDataSource::get_closest_match(rclcpp::Time &time, ViconData *res)
     auto t_1 = old.stamp;
     auto t_2 = new_.stamp;
 
-
     // Interpolate position
     for (int i = 0; i < 3; i++)
     {
         mjtNum s_1 = old.base_pos[i];
         mjtNum s_2 = new_.base_pos[i];
 
-        res->base_pos[i] = interpolate_time(t_1, t_2, s_1, s_2, time);
+        vicon_res->base_pos[i] = interpolate_time(t_1, t_2, s_1, s_2, time);
 
         mjtNum v_1 = old.world_lin_vel[i];
         mjtNum v_2 = new_.world_lin_vel[i];
 
-        res->world_lin_vel[i] = interpolate_time(t_1, t_2, v_1, v_2, time);
+        vicon_res->world_lin_vel[i] = interpolate_time(t_1, t_2, v_1, v_2, time);
     }
 
     // Interpolate orientation
@@ -182,10 +183,10 @@ bool ViconDataSource::get_closest_match(rclcpp::Time &time, ViconData *res)
     interpolate_quat(t_1, t_2, rot_1, rot_2, time, result);
 
     // Write back
-    res->orientation[0] = result.x();
-    res->orientation[1] = result.y();
-    res->orientation[2] = result.z();
-    res->orientation[3] = result.w();
+    vicon_res->orientation[0] = result.x();
+    vicon_res->orientation[1] = result.y();
+    vicon_res->orientation[2] = result.z();
+    vicon_res->orientation[3] = result.w();
 
     return true;
 }

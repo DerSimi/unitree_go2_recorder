@@ -29,5 +29,5 @@ private:
 public:
     void subscribe(rclcpp::Node *node) override;
     std::deque<HighStateData> &buffer() override { return buffer_; }
-    bool get_closest_match(rclcpp::Time &time, HighStateData *res);
+    bool get_closest_match(rclcpp::Time &time, void *res);
 };

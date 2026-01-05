@@ -47,6 +47,6 @@ private:
     mjData *data_;
     
 public:
-    bool get_closest_match(rclcpp::Time &time, LowCmdData *res);
+    bool get_closest_match(rclcpp::Time &time, void *res);
 
 };

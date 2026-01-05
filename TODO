@@ -4,6 +4,7 @@
 - is uv sync sufficient? does it activate the env?
 - add your ros module for time syncin
 - fix script bug that it does not work the first time with vicon
+- add this to README https://github.com/intelligent-soft-robots/vicon-datastream-sdk
 
 python setup with ros and timed_topics setup:
 - python3.10 -m venv .venv --system-site-packages
@@ -18,3 +19,4 @@ https://github.com/intelligent-soft-robots/vicon-datastream-sdk
 
 1. Seperate rendering and data storing,
 data storing is now triggered by lowstate
+

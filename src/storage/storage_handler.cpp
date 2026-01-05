@@ -12,36 +12,67 @@ StorageHandler::~StorageHandler()
 {
 }
 
-void StorageHandler::add_state(const mjData *mj_data, const helperData *helper_data, double timestamp)
+void StorageHandler::add_state(const LowStateData *low_state_data, const LowCmdData *low_cmd_data, const HighStateData *high_state_data, double timestamp)
 {
-    data_.insert(data_.end(), mj_data->qpos, mj_data->qpos + nq_);
-    data_.insert(data_.end(), mj_data->qvel, mj_data->qvel + nv_);
-    data_.insert(data_.end(), mj_data->ctrl, mj_data->ctrl + nu_);
+    // qpos: Base pos (3), base ori (4), joint pos (12): 19
+    std::vector<mjtNum> qpos;
+    qpos.reserve(nq_);
 
-    // Insert helper fields
-    data_.insert(data_.end(), helper_data->q.begin(), helper_data->q.end());
-    data_.insert(data_.end(), helper_data->dq.begin(), helper_data->dq.end());
-    data_.insert(data_.end(), helper_data->tau.begin(), helper_data->tau.end());
-    data_.insert(data_.end(), helper_data->kp.begin(), helper_data->kp.end());
-    data_.insert(data_.end(), helper_data->kd.begin(), helper_data->kd.end());
+    qpos.push_back(high_state_data->base_pos[0]);
+    qpos.push_back(high_state_data->base_pos[1]);
+    qpos.push_back(high_state_data->base_pos[2]);
 
-    data_.insert(data_.end(), helper_data->tau_est.begin(), helper_data->tau_est.end());
-    data_.insert(data_.end(), helper_data->q_raw.begin(), helper_data->q_raw.end());
-    data_.insert(data_.end(), helper_data->dq_raw.begin(), helper_data->dq_raw.end());
+    qpos.push_back(low_state_data->base_quat[0]);
+    qpos.push_back(low_state_data->base_quat[1]);
+    qpos.push_back(low_state_data->base_quat[2]);
+    qpos.push_back(low_state_data->base_quat[3]);
+
+    qpos.insert(qpos.end(), low_state_data->qpos_joints.begin(), low_state_data->qpos_joints.end());
+    data_.insert(data_.end(), qpos.begin(), qpos.end());
+
+    // qvel: Base lin vel (3), base ang vel (3), joint vel (12): 18
+    std::vector<mjtNum> qvel;
+    qvel.reserve(nv_);
+
+    qvel.push_back(high_state_data->base_lin_vel[0]);
+    qvel.push_back(high_state_data->base_lin_vel[1]);
+    qvel.push_back(high_state_data->base_lin_vel[2]);
+
+    qvel.push_back(low_state_data->base_ang_vel[0]);
+    qvel.push_back(low_state_data->base_ang_vel[1]);
+    qvel.push_back(low_state_data->base_ang_vel[2]);
+
+    qvel.insert(qvel.end(), low_state_data->qvel_joints.begin(), low_state_data->qvel_joints.end());
+    data_.insert(data_.end(), qvel.begin(), qvel.end());
+
+    // ctrl: motor commands (12): 12
+    data_.insert(data_.end(), low_cmd_data->ctrl.begin(), low_cmd_data->ctrl.end());
+
+    // LowCmd additional data
+    data_.insert(data_.end(), low_cmd_data->q.begin(), low_cmd_data->q.end());
+    data_.insert(data_.end(), low_cmd_data->dq.begin(), low_cmd_data->dq.end());
+    data_.insert(data_.end(), low_cmd_data->tau.begin(), low_cmd_data->tau.end());
+    data_.insert(data_.end(), low_cmd_data->kp.begin(), low_cmd_data->kp.end());
+    data_.insert(data_.end(), low_cmd_data->kd.begin(), low_cmd_data->kd.end());
+
+    // LowState additional data
+    data_.insert(data_.end(), low_state_data->tau_est.begin(), low_state_data->tau_est.end());
+    data_.insert(data_.end(), low_state_data->q_raw.begin(), low_state_data->q_raw.end());
+    data_.insert(data_.end(), low_state_data->dq_raw.begin(), low_state_data->dq_raw.end());
 
     time_.push_back(timestamp);
 }
 
 void StorageHandler::store_data(const char *filename)
 {
-    if(data_.size() == 0)
+    if (data_.size() == 0)
     {
         spdlog::warn("No data was recorded!");
         return;
     }
 
     spdlog::info("Exporting {} data points to {}...",
-            data_.size() / (nq_ + nv_ + nu_ + 8 * nu_), filename);
+                 data_.size() / (nq_ + nv_ + nu_ + 8 * nu_), filename);
     // Write data to file
     cnpy::npz_save(filename, "state", data_);
 

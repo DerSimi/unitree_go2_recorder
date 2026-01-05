@@ -137,6 +137,7 @@ void Simulator::physics_loop()
         if (extractor_node_)
         { // lock sim mutex
             const std::unique_lock<std::recursive_mutex> lock(sim_->mtx);
+            // this will override mj_data_ if a new match is available
             if (extractor_node_->get_rendering_state())
             {
                 //get_rendering_state will overwrite d_.

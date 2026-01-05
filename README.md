@@ -61,7 +61,8 @@ Don't forget to install the dependencies:
 > **Important**  
 > You must build MuJoCo from source, it is not enough to install the precompiled version!
 
-Make sure all dependencies are installed and available in your system path. Then build the project with:
+Make sure all dependencies are installed and available in your system path.
+Then build the project with:
 ```zsh
 git clone https://github.com/DerSimi/unitree_go2_recorder && cd unitree_go2_recorder
 mkdir build && cd build

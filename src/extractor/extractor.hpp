@@ -10,10 +10,6 @@
 
 #include <Eigen/Geometry>
 
-#include "unitree_go/msg/low_cmd.hpp"
-#include "unitree_go/msg/low_state.hpp"
-#include "unitree_go/msg/sport_mode_state.hpp"
-
 #include <mujoco/mujoco.h>
 
 #include <spdlog/spdlog.h>
@@ -27,10 +23,7 @@
 
 using namespace std;
 
-// Topics
-
 #define MOTOR_SENSOR_NUM 3
-#define SYNC_BUFFER_MAX_SIZE 100
 
 enum class ExtractorMode {
     HIGHSTATE,
@@ -55,6 +48,12 @@ private:
     LowCmdSource low_cmd_source_;
     HighStateSource high_state_source_;
     ViconDataSource vicon_source_;
+
+    // Matches
+    LowStateData last_low_state_match_{NUM_MOTOR};
+    LowCmdData last_low_cmd_match_{NUM_MOTOR};
+    HighStateData last_high_state_match_;
+    bool has_match_ = false;
 
     mjData *mj_data_;
     mjModel *mj_model_;

@@ -33,8 +33,14 @@ public:
   virtual ~DataSource() = default;
   virtual void subscribe(rclcpp::Node *node) = 0;
   virtual std::deque<T> &buffer() = 0;
-  virtual void get_closest_match(rclcpp::Time &time, void *res);
+  virtual bool get_closest_match(rclcpp::Time &time, void *res);
 };
+
+template <typename T>
+bool DataSource<T>::get_closest_match(rclcpp::Time &, void *) {
+    NOT_IMPLEMENTED;
+    return false;
+}
 
 inline double interpolate_time(const rclcpp::Time &t_1, const rclcpp::Time &t_2, double y_1, double y_2, const rclcpp::Time &at)
 {
