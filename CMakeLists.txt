@@ -16,6 +16,7 @@ find_package(rclcpp REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(unitree_go REQUIRED)
+find_package(timed_topics REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 file(GLOB SIM_SRC
@@ -50,6 +51,7 @@ target_include_directories(go2_recorder
   PRIVATE /opt/ros/${ROS_DISTRO}/include
   PRIVATE ${tf2_msgs_INCLUDE_DIRS}
   PRIVATE ${unitree_go_INCLUDE_DIRS}
+  PRIVATE ${timed_topics_INCLUDE_DIRS}
   PRIVATE ${nav_msgs_INCLUDE_DIRS}
   PRIVATE ${EIGEN3_INCLUDE_DIRS}
 )
@@ -58,6 +60,7 @@ target_link_libraries(go2_recorder
   PRIVATE rclcpp::rclcpp
   PRIVATE ${tf2_msgs_LIBRARIES}
   PRIVATE ${unitree_go_LIBRARIES}
+  PRIVATE ${timed_topics_LIBRARIES}
   PRIVATE ${nav_msgs_LIBRARIES}
   PRIVATE Eigen3::Eigen
   PRIVATE vicon-datastream-sdk::ViconDataStreamSDK_CPP

@@ -2,20 +2,23 @@
 
 MujocoExtractor::~MujocoExtractor()
 {
+    running_ = false;
+    if (sync_thread_.joinable())
+        sync_thread_.join();
 }
 
-MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helper_data, ExtractorMode mode)
+MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, ExtractorMode mode, StorageHandler *storage_handler)
     : rclcpp::Node("mujoco_extractor_node"),
       mj_model_(model),
       mj_data_(data),
       mode_(mode),
-      helper_data_(helper_data),
+      storage_handler_(storage_handler),
       low_state_source_(),
       low_cmd_source_(data),
       high_state_source_(),
       vicon_source_("10.0.0.20")
 {
-    // New data representation
+    // New state representation
     low_state_source_.subscribe(this);
     low_cmd_source_.subscribe(this);
 
@@ -24,10 +27,6 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helpe
     case ExtractorMode::HIGHSTATE:
         spdlog::info("Using SportStateMode for base estimation, note this is not available in low state mode.");
         high_state_source_.subscribe(this);
-        break;
-    case ExtractorMode::GO2_ODOMETRY:
-        spdlog::info("Using GO2_ODOMETRY for base estimation.");
-        odometry_source_.subscribe(this);
         break;
     case ExtractorMode::VICON:
         spdlog::info("Using VICON for base estimation.");
@@ -38,212 +37,133 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, helperData *helpe
         break;
     }
 
+    sync_thread_ = std::thread([this]()
+                               {
+        using namespace std::chrono;
+        auto next = steady_clock::now();
+        while (running_) {
+            sync();
+            next += milliseconds(2);
+            std::this_thread::sleep_until(next);
+        } });
+
     check_sensor();
 
     spdlog::info("Save your recording by closing the MuJoCo window or pressing Ctrl+C.");
 }
 
-void MujocoExtractor::insertSynchronizedData(const LowCmdData &cmd, const LowStateData &low_state, const HighStateData &high_state)
+// This method will override mj_data and is only called when the simulation mutex is locked.
+bool MujocoExtractor::get_rendering_state()
 {
-    // Base position and orientation
-    mj_data_->qpos[0] = high_state.base_pos[0];
-    mj_data_->qpos[1] = high_state.base_pos[1];
-    mj_data_->qpos[2] = high_state.base_pos[2];
-
-    mj_data_->qpos[3] = low_state.base_quat[0];
-    mj_data_->qpos[4] = low_state.base_quat[1];
-    mj_data_->qpos[5] = low_state.base_quat[2];
-    mj_data_->qpos[6] = low_state.base_quat[3];
-
-    // Base linear and angular velocity
-    mj_data_->qvel[0] = high_state.base_lin_vel[0];
-    mj_data_->qvel[1] = high_state.base_lin_vel[1];
-    mj_data_->qvel[2] = high_state.base_lin_vel[2];
-
-    mj_data_->qvel[3] = low_state.base_ang_vel[0];
-    mj_data_->qvel[4] = low_state.base_ang_vel[1];
-    mj_data_->qvel[5] = low_state.base_ang_vel[2];
-
-    // Motor angle, velocity and control
-    for (int i = 0; i < num_motor_; i++)
-    {
-        mj_data_->qpos[7 + i] = low_state.qpos_joints[i];
-        mj_data_->qvel[6 + i] = low_state.qvel_joints[i];
-        mj_data_->ctrl[i] = cmd.ctrl[i];
-    }
-
-    // Write back helper data
-    for (int i = 0; i < num_motor_; i++)
-    {
-        // Low command
-        helper_data_->q[i] = cmd.q[i];
-        helper_data_->dq[i] = cmd.dq[i];
-        helper_data_->tau[i] = cmd.tau[i];
-        helper_data_->kp[i] = cmd.kp[i];
-        helper_data_->kd[i] = cmd.kd[i];
-
-        // Low state
-        helper_data_->tau_est[i] = low_state.tau_est[i];
-        helper_data_->q_raw[i] = low_state.q_raw[i];
-        helper_data_->dq_raw[i] = low_state.dq_raw[i];
-    }
-}
-
-// Synchronization logic: First choose the oldest low cmd entry, and then choose the corresponding high
-// and low state entry which is closed to it, but NOT newer!
-bool MujocoExtractor::GetSynchronizedState(double &out_timestamp)
-{
-    if (!mj_data_ && have_frame_sensor_)
-        return false;
-
+    // lock sync_mtx_
     std::lock_guard<std::mutex> lock(DataSourceBase::sync_mtx_);
 
-    if (mode_ == ExtractorMode::GO2_ODOMETRY && odometry_source_.buffer().empty())
-    {
+    if (!has_match_)
         return false;
+
+    // x, y, z
+    mj_data_->qpos[0] = last_high_state_match_.base_pos[0];
+    mj_data_->qpos[1] = last_high_state_match_.base_pos[1];
+    mj_data_->qpos[2] = last_high_state_match_.base_pos[2];
+
+    // Orientation
+    mj_data_->qpos[3] = last_low_state_match_.base_quat[0];
+    mj_data_->qpos[4] = last_low_state_match_.base_quat[1];
+    mj_data_->qpos[5] = last_low_state_match_.base_quat[2];
+    mj_data_->qpos[6] = last_low_state_match_.base_quat[3];
+
+    // Base linear and angular velocity
+    mj_data_->qvel[0] = last_high_state_match_.base_lin_vel[0];
+    mj_data_->qvel[1] = last_high_state_match_.base_lin_vel[1];
+    mj_data_->qvel[2] = last_high_state_match_.base_lin_vel[2];
+
+    mj_data_->qvel[3] = last_low_state_match_.base_ang_vel[0];
+    mj_data_->qvel[4] = last_low_state_match_.base_ang_vel[1];
+    mj_data_->qvel[5] = last_low_state_match_.base_ang_vel[2];
+
+    // Joint position and velocity, and motor commands
+    for (int i = 0; i < num_motor_; i++)
+    {
+        mj_data_->qpos[7 + i] = last_low_state_match_.qpos_joints[i];
+        mj_data_->qvel[6 + i] = last_low_state_match_.qvel_joints[i];
+        mj_data_->ctrl[i] = last_low_cmd_match_.ctrl[i];
     }
+
+    return true;
+}
+
+void MujocoExtractor::sync()
+{
+    has_match_ = false;
+
+    if (!mj_data_ && have_frame_sensor_)
+        return;
+
+    // lock sync_mtx_
+    std::lock_guard<std::mutex> lock(DataSourceBase::sync_mtx_);
 
     if (mode_ == ExtractorMode::HIGHSTATE && high_state_source_.buffer().empty())
     {
-        return false;
+        return;
     }
 
     if (mode_ == ExtractorMode::VICON && vicon_source_.buffer().empty())
     {
-        return false;
+        return;
     }
 
     if (low_cmd_source_.buffer().empty() || low_state_source_.buffer().empty())
     {
-        return false;
+        return;
     }
+    // 1. Get oldes low_state
 
-    const auto &ref_low_cmd = low_cmd_source_.buffer().front();
-    double T_ref = ref_low_cmd.timestamp;
+    // Remove the oldest, we don't want buffer overflows in the lowstate,
+    // but we don't care if it happens for the other states, as they are most of the time slower
+    // we need to make sure to find a matching partner.
+    LowStateData &oldest = low_state_source_.buffer().front();
+    last_low_state_match_ = oldest;
+    low_state_source_.buffer().pop_front();
 
-    // Get the low state first
-    auto it_low = low_state_source_.buffer().rbegin();
-    while (it_low != low_state_source_.buffer().rend() && it_low->timestamp > T_ref)
-    {
-        ++it_low;
-    }
+    // 2. Get the closest low_cmd in terms of time
+    if (!low_cmd_source_.get_closest_match(oldest.stamp, &last_low_cmd_match_))
+        return;
 
-    if (it_low == low_state_source_.buffer().rend())
-    {
-        low_cmd_source_.buffer().pop_front();
-        return false;
-    }
+    // 3. Get the closest vicon or high state
+    if (mode_ == ExtractorMode::VICON)
+    { // Vicon
+        ViconData vicon_data;
+        // This will interpolate position, orientaton
+        if (!vicon_source_.get_closest_match(oldest.stamp, &vicon_data))
+            return;
 
-    LowStateData *match_low_state = &(*it_low);
+        last_high_state_match_.stamp = oldest.stamp;
+        last_high_state_match_.base_pos[0] = vicon_data.base_pos[0];
+        last_high_state_match_.base_pos[1] = vicon_data.base_pos[1];
+        last_high_state_match_.base_pos[2] = vicon_data.base_pos[2];
 
-    // Now get the high state
-    HighStateData high_state_data;
-
-    if (mode_ == ExtractorMode::HIGHSTATE)
-    {
-        auto it_high = high_state_source_.buffer().rbegin();
-        while (it_high != high_state_source_.buffer().rend() && it_high->timestamp > T_ref)
-        {
-            ++it_high;
-        }
-
-        if (it_high == high_state_source_.buffer().rend())
-        {
-            low_cmd_source_.buffer().pop_front();
-            return false;
-        }
-
-        high_state_data = *it_high;
-
-        high_state_source_.buffer().erase(high_state_source_.buffer().begin(), it_high.base() - 1);
-    }
-    else if (mode_ == ExtractorMode::GO2_ODOMETRY) // Use odometry data
-    {
-        auto it_odometry = odometry_source_.buffer().rbegin();
-        while (it_odometry != odometry_source_.buffer().rend() && it_odometry->timestamp > T_ref)
-        {
-            ++it_odometry;
-        }
-
-        if (it_odometry == odometry_source_.buffer().rend())
-        {
-            low_cmd_source_.buffer().pop_front();
-            return false;
-        }
-
-        OdometryData odometry = *it_odometry;
-
-        high_state_data.timestamp = T_ref;
-
-        // Store the result
-        // Base pos
-        high_state_data.base_pos[0] = odometry.base_pos[0];
-        high_state_data.base_pos[1] = odometry.base_pos[1];
-        high_state_data.base_pos[2] = odometry.base_pos[2] + ODOMETRY_Z_OFFSET;
-        // Lin velocity
-        high_state_data.base_lin_vel[0] = odometry.base_lin_vel[0];
-        high_state_data.base_lin_vel[1] = odometry.base_lin_vel[1];
-        high_state_data.base_lin_vel[2] = odometry.base_lin_vel[2];
-
-        // Override low state orientation and angular velocity with odometry data
-        match_low_state->base_quat[0] = odometry.base_quat[0];
-        match_low_state->base_quat[1] = odometry.base_quat[1];
-        match_low_state->base_quat[2] = odometry.base_quat[2];
-        match_low_state->base_quat[3] = odometry.base_quat[3];
-
-        match_low_state->base_ang_vel[0] = odometry.base_ang_vel[0];
-        match_low_state->base_ang_vel[1] = odometry.base_ang_vel[1];
-        match_low_state->base_ang_vel[2] = odometry.base_ang_vel[2];
-
-        odometry_source_.buffer().erase(odometry_source_.buffer().begin(), it_odometry.base() - 1);
-    }
-    else if (mode_ == ExtractorMode::VICON) // Use VICON data
-    {
-        auto it_vicon = vicon_source_.buffer().rbegin();
-        while (it_vicon != vicon_source_.buffer().rend() && it_vicon->timestamp > T_ref)
-        {
-            ++it_vicon;
-        }
-
-        if (it_vicon == vicon_source_.buffer().rend())
-        {
-            low_cmd_source_.buffer().pop_front();
-            return false;
-        }
-
-        ViconData vicon_data = *it_vicon;
-
-        high_state_data.timestamp = T_ref;
-
-        // Store the result
-        // Base pos
-        high_state_data.base_pos[0] = vicon_data.base_pos[0];
-        high_state_data.base_pos[1] = vicon_data.base_pos[1];
-        high_state_data.base_pos[2] = vicon_data.base_pos[2];
-
-        high_state_data.base_lin_vel[0] = vicon_data.base_lin_vel[0];
-        high_state_data.base_lin_vel[1] = vicon_data.base_lin_vel[1];
-        high_state_data.base_lin_vel[2] = vicon_data.base_lin_vel[2];
+        last_high_state_match_.base_lin_vel[0] = vicon_data.world_lin_vel[0];
+        last_high_state_match_.base_lin_vel[1] = vicon_data.world_lin_vel[1];
+        last_high_state_match_.base_lin_vel[2] = vicon_data.world_lin_vel[2];
 
         // Override low state orientation with VICON data
-        match_low_state->base_quat[0] = vicon_data.orientation[3]; // w
-        match_low_state->base_quat[1] = vicon_data.orientation[0]; // x
-        match_low_state->base_quat[2] = vicon_data.orientation[1]; // y
-        match_low_state->base_quat[3] = vicon_data.orientation[2]; // z
-
-        vicon_source_.buffer().erase(vicon_source_.buffer().begin(), it_vicon.base() - 1);
+        last_low_state_match_.base_quat[0] = vicon_data.orientation[3]; // w
+        last_low_state_match_.base_quat[1] = vicon_data.orientation[0]; // x
+        last_low_state_match_.base_quat[2] = vicon_data.orientation[1]; // y
+        last_low_state_match_.base_quat[3] = vicon_data.orientation[2]; // z
+    }
+    else
+    { // SportModeState
+        if (!high_state_source_.get_closest_match(oldest.stamp, &last_high_state_match_))
+            return;
     }
 
-    // Insert data into mj_data
-    insertSynchronizedData(ref_low_cmd, *match_low_state, high_state_data);
+    storage_handler_->add_state(&last_low_state_match_, &last_low_cmd_match_, &last_high_state_match_,
+                                static_cast<double>(oldest.stamp.nanoseconds()) / 1e9);
 
-    out_timestamp = T_ref;
-    low_cmd_source_.buffer().pop_front();
+    has_match_ = true;
 
-    low_state_source_.buffer().erase(low_state_source_.buffer().begin(), it_low.base() - 1);
-
-    return true;
-}
+} // free sync_mtx_
 
 void MujocoExtractor::check_sensor()
 {

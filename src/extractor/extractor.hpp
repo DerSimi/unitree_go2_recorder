@@ -3,14 +3,12 @@
 #include <iostream>
 #include <deque>
 #include <chrono>
+#include <thread>
+#include <atomic>
 
 #include <rclcpp/rclcpp.hpp>
 
 #include <Eigen/Geometry>
-
-#include "unitree_go/msg/low_cmd.hpp"
-#include "unitree_go/msg/low_state.hpp"
-#include "unitree_go/msg/sport_mode_state.hpp"
 
 #include <mujoco/mujoco.h>
 
@@ -19,46 +17,53 @@
 #include "base/low_state/low_state.hpp"
 #include "base/low_cmd/low_cmd.hpp"
 #include "base/high_state/high_state.hpp"
-#include "base/go2_odometry/go2_odometry.hpp"
 #include "base/vicon/vicon.hpp"
 
 #include "storage/storage_handler.hpp"
 
 using namespace std;
 
-// Topics
-
 #define MOTOR_SENSOR_NUM 3
-#define SYNC_BUFFER_MAX_SIZE 100
 
 enum class ExtractorMode {
     HIGHSTATE,
-    GO2_ODOMETRY,
     VICON
 };
 
 class MujocoExtractor : public rclcpp::Node
 {
 public:
-    MujocoExtractor(mjModel *model, mjData *data, helperData *helper_data, ExtractorMode mode);
+    MujocoExtractor(mjModel *model, mjData *data, ExtractorMode mode, StorageHandler* storage_handler);
     ~MujocoExtractor();
 
-    bool GetSynchronizedState(double &out_timestamp);
+    // This function is only triggered for visualization.
+    bool get_rendering_state();
+    // ... it relies on the data being stored by store_data, which is triggered independently
+    // to avoid interference by simulation.
+    void sync();
 
 private:
     // Data sources
     LowStateSource low_state_source_;
     LowCmdSource low_cmd_source_;
     HighStateSource high_state_source_;
-    OdometrySource odometry_source_;
     ViconDataSource vicon_source_;
+
+    // Matches
+    LowStateData last_low_state_match_{NUM_MOTOR};
+    LowCmdData last_low_cmd_match_{NUM_MOTOR};
+    HighStateData last_high_state_match_;
+    bool has_match_ = false;
 
     mjData *mj_data_;
     mjModel *mj_model_;
 
-    helperData *helper_data_;
-
     ExtractorMode mode_;
+
+    StorageHandler *storage_handler_;
+
+    std::thread sync_thread_;
+    std::atomic<bool> running_{true};
 
     int num_motor_ = 0;
     int dim_motor_sensor_ = 0;

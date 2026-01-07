@@ -1,9 +1,10 @@
 #pragma once
 
+#include <array>
 #include <iostream>
 #include <chrono>
 #include <vector>
-#include <unistd.h> 
+#include <unistd.h>
 #include <thread>
 
 #include <mujoco/mujoco.h>
@@ -17,22 +18,16 @@
 
 struct ViconData
 {
-    double timestamp;
-    mjtNum base_pos[3];    // base position
-    mjtNum orientation[4]; // base orientation
-    mjtNum base_lin_vel[3]; // base linear velocity
+    rclcpp::Time stamp;
+    mjtNum base_pos[3];     // base position
+    mjtNum orientation[4];  // base orientation
+    mjtNum world_lin_vel[3]; // base linear velocity
 };
 
 class ViconDataSource : public DataSource<ViconData>
 {
-public:
-    explicit ViconDataSource(const std::string &hostname);
-    ~ViconDataSource() override;
-    void subscribe(rclcpp::Node *node) override;
-    std::deque<ViconData> &buffer() override { return buffer_; }
-
 private:
-    void callback(const std::array<double, 3>& position, const std::array<double, 4>& orientation);
+    void callback(const std::array<double, 3> &position, const std::array<double, 4> &orientation);
 
     std::string hostname_;
     ViconDataStreamSDK::CPP::Client client_;
@@ -41,9 +36,18 @@ private:
     bool running_ = false;
 
     // For velocity estimation
-    bool hast_last_position_ = false;
-    double last_timestamp_ = 0.0;
-    std::array<double, 3> last_position_;
+    // bool hast_last_position_ = false;
+    // double last_timestamp_ = 0.0;
+    // std::array<double, 3> last_position_;
 
     std::deque<ViconData> buffer_;
+
+public:
+    explicit ViconDataSource(const std::string &hostname);
+    ~ViconDataSource() override;
+    void subscribe(rclcpp::Node *node) override;
+    std::deque<ViconData> &buffer() override { return buffer_; }
+    // Returns the interpolated step:
+    // Searches for the two vicon steps between the stamp, and interpolates the position change in that timeframe.
+    bool get_closest_match(rclcpp::Time &time, void *res);
 };

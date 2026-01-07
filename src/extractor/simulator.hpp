@@ -54,7 +54,6 @@ private:
     // Simulator specific
     mjModel *m_;
     mjData *d_ = nullptr;
-    helperData *helper_data_; // For collecting more data
     std::unique_ptr<mj::Simulate> sim_;
 
     //static instance for signal handler

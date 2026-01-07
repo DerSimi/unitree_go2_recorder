@@ -98,7 +98,7 @@ fi
 estimator=""
 if [ "$mode" = "Real world data" ]; then
     echo "${PREFIX} Data collection in the real world requires selecting a base state estimator."
-    estimator=$(gum choose "SportModeState" "Vicon" "Go2Odometry" --header="Select the base estimator")
+    estimator=$(gum choose "SportModeState" "Vicon" --header="Select the base estimator")
 fi
 
 if [ "$estimator" = "SportModeState" ]; then
@@ -107,9 +107,6 @@ if [ "$estimator" = "SportModeState" ]; then
 elif [ "$estimator" = "Vicon" ]; then
     estimator="vicon"
     echo "${PREFIX} You selected Vicon as base estimator. Make sure to setup the system, and configure the network."
-elif [ "$estimator" = "Go2Odometry" ]; then
-    estimator="go2odometry"
-    echo "${PREFIX} You selected Go2Odometry as base estimator. This is also available in low state mode, but less accurate than the other two options. See: https://github.com/inria-paris-robotics-lab/go2_odometry"
 fi
 
 if [ "$estimator" = "" ]; then
@@ -177,6 +174,8 @@ if [ "$mode" = "Real world data" ]; then
             sudo ip addr add $VICON_HOST_IP/24 dev $VICON_ETH_INTERFACE
 
             sudo ip link set $VICON_ETH_INTERFACE up
+
+            sleep 2
 
             # if vicon fails after setting up the network, ...
             if ! ping_test $VICON_IP; then

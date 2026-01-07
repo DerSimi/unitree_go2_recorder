@@ -21,7 +21,6 @@ Capture and replay accurate, timestamped Unitree Go2 data for analysis and visua
 Supported base estimators
 - [Unitree SportStateMode](https://support.unitree.com/home/en/developer/sports_services)
 - Vicon (a camera based motion capture system).
-- [go2_odometry](https://github.com/inria-paris-robotics-lab/go2_odometry)
 
 > **Note**  
 > Sport state mode is not available when the robot is in low state mode (e. g. if you want to record policy data). Vicon offers the highest accuracy. For vicon, you find more information in the `docs` folder.
@@ -48,30 +47,60 @@ Base estimation:
 - base position
 - base velocity (not implemented for vicon)
 
-# 💻 Installation
-Don't forget to install the dependencies:
-
+# 🧩 Dependencies
+Install the following dependencies:
 - [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2): Only tested with Humble!
 - [unitree_sdk2](https://github.com/unitreerobotics/unitree_sdk2)
 - [mujoco](https://github.com/google-deepmind/mujoco) (version 3.2.7)
 - [cnpy](https://github.com/rogersce/cnpy)
 - `sudo apt install libglfw3-dev libxinerama-dev libxcursor-dev libxi-dev libspdlog-dev`
 - [gum](https://github.com/charmbracelet/gum)
+- [Vicon](https://github.com/intelligent-soft-robots/vicon-datastream-sdk)
 
 > **Important**  
 > You must build MuJoCo from source, it is not enough to install the precompiled version!
 
-Make sure all dependencies are installed and available in your system path. Then build the project with:
-```zsh
-git clone https://github.com/DerSimi/unitree_go2_recorder && cd unitree_go2_recorder
-mkdir build && cd build
-cmake .. && make
-```
-Note, if you see any errors, source your unitree ros2 workspace, especially, source `setup.sh` and `install/setup.sh`.
+# 📦 Source ROS environment
+Before compiling anything, make sure you source the `setup.sh` from [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2). Also source the setup script in its installation folder.
 ```zsh
 source ~/unitree_ros2/setup.sh
 source ~/unitree_ros2/install/setup.sh
 ```
+
+# 🛠️ Timed Topics
+For accurate time measurement, install and set up the `timed_topics` ROS package on the Unitree Go2's internal Nvidia Jetson. You only need [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2), but be sure to follow the steps from the previous section.
+
+```zsh
+cd timed_topics
+colcon build --packages-select timed_topics
+```
+
+You also need to build the `timed_topics` package on your workstation for building the Go2Recorder itself, see next capture.
+
+Start the node only on the Nvidia Jetson:
+```zsh
+ros2 run timed_topics republish_node 
+```
+Alternatively, you can start it on your workstation, but timestamp accuracy may be affected by system load. In this case, you should extend your
+python environment to also use the system packages.
+```zsh
+python3.10 -m venv .venv --system-site-packages
+uv pip install catkin_pkg "empy<4" lark
+```
+This is confusing at this point, continue reading, until capture `Python Installation`.
+
+> **Important**  
+> For time synchronization, especially when using Vicon, synchronize the Nvidia Jetson and your workstation. I used [chrony](https://chrony-project.org/) for this.
+
+# 🛠️ Build Go2Recorder
+Make sure all dependencies are installed and available in your system path.
+Then build the project with:
+```zsh
+mkdir build && cd build
+cmake .. && make
+```
+> ** Note** 
+> If you see any errors, make sure your ROS environment is properly sourced. The `timed_topics` package must be compiled and sourced first.
 
 Set the path to your Unitree ROS2 workspace by adding the following to your shell startup file (e.g. `~/.zshrc` or `~/.bashrc`):
 ```zsh
@@ -89,24 +118,32 @@ To start the recorder, run
 ```
 in the project root (interactive), or run the built executable in `build`:
 ```sh
-./go2_recorder --mode <high|vicon|go2odometry> --model <model_path> --storage <storage_path>
+./go2_recorder --mode <high|vicon> --model <model_path> --storage <storage_path>
 ```
-The recording is always stored within the output folder in the project root, so it suffices, just giving a name, like `test.npy`.
+The recording is always stored within the output folder in the project root, a simple name suffices, e. g., `test.npy`.
 
-# Python Installation
+# 💻 Python Installation
 If required, the created `.npy` file in the `storage` directory can be rendered using Python.
 See `renderer/play.py` for an example of how to use the recording.
 
 Install all Python dependencies using `uv` or a package manager of your liking:
 ```zsh
-uv venv --python 3.12
-source .venv/bin/activate
-uv pip install -r requirements.txt
+uv sync
 ```
 
-Then run the code in `renderer/play.py`:
+And don't forget to activate the environment:
 ```zsh
-python renderer/play.py
+source .venv/bin/activate
+```
+
+For timestamp inspection run:
+```zsh
+python debugging/latency.py
+```
+
+To create a video from your recording, use:
+```zsh
+python debugging/render.py
 ```
 
 # Usage
@@ -145,10 +182,10 @@ ros2 bag play myrecording
 You can test with the sample bag in the samples folder — unpack the archive first.
 
 > **Important**  
-> This applies only to SportStateMode and go2_odometry. Vicon does not publish ROS2 topics. For go2_odometry, record the topic: `/odometry/filtered`.
+> This applies only to SportStateMode. Vicon does not publish ROS2 topics.
 
 # Details on Synchronization and Timestamp Feature
-You will notice that the recording contains a different number of messages for each relevant topic. This requires a synchronization strategy. I chose to use the topic with the most messages, which is `/lowcmd`, as the reference. The program always takes the oldest `/lowcmd` message in the buffer and searches for the closest (but not newer) messages from the other topics. 
+You will notice that the recording contains a different number of messages for each relevant topic. This requires a synchronization strategy. I chose to use the topic with the most messages, which is `/lowstate`, as the reference. The program always takes the closest `/lowcmd` message in the buffer and searches for the closest messages from the other topics. For Vicon data, interpolation is used: the algorithm finds the two nearest measurements (one older, one newer) and interpolates position, velocity, and rotation (using slerp for orientation).
 
 Note that the timestamps here are based on the (rather inaccurate) PC time, since there are no timestamps available in `/lowcmd` and `/lowstate`.
 

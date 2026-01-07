@@ -9,7 +9,7 @@ int main(int argc, char **argv)
 
     const std::string USAGE =
     "Usage:\n"
-    "  ./go2_recorder --mode <high|vicon|go2odometry> --model <model_path> --storage <storage_path>\n"
+    "  ./go2_recorder --mode <high|vicon> --model <model_path> --storage <storage_path>\n"
     "Defaults:\n"
     "  --mode high\n"
     "  --model model/scene.xml\n"
@@ -39,15 +39,14 @@ int main(int argc, char **argv)
     }
 
     // Check mode validity
-    if (mode != "high" && mode != "vicon" && mode != "go2odometry") {
-        spdlog::error("Invalid mode '{}'. Valid options: high, vicon, go2odometry", mode);
+    if (mode != "high" && mode != "vicon") {
+        spdlog::error("Invalid mode '{}'. Valid options: high, vicon", mode);
         return 1;
     }
 
     // Map string to ExtractorMode enum
     ExtractorMode extractor_mode = ExtractorMode::HIGHSTATE;
     if (mode == "vicon") extractor_mode = ExtractorMode::VICON;
-    else if (mode == "go2odometry") extractor_mode = ExtractorMode::GO2_ODOMETRY;
 
     Simulator simulator(extractor_mode, storage_path, model_path);
     return 0;
