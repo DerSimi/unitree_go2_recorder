@@ -5,7 +5,7 @@ from tqdm import tqdm
 from data_loader import DataLoader
 
 # Load data
-data_loader = DataLoader(name='storage')
+data_loader = DataLoader(name='test')
 data_loader.print_debug()
 
 model = data_loader.get_mj_model()
@@ -41,7 +41,7 @@ with mujoco.Renderer(model) as renderer:
         
         mujoco.mj_forward(model, mj_data)
         
-        time = time + 0.01
+        time = time + 0.002
         
         if len(frames) < time * framerate:
             renderer.update_scene(mj_data, camera=camera)

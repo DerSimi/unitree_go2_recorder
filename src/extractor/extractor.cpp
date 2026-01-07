@@ -159,7 +159,7 @@ void MujocoExtractor::sync()
     }
 
     storage_handler_->add_state(&last_low_state_match_, &last_low_cmd_match_, &last_high_state_match_,
-                                static_cast<double>(oldest.stamp.nanoseconds()) / 1e6);
+                                static_cast<double>(oldest.stamp.nanoseconds()) / 1e9);
 
     has_match_ = true;
 
