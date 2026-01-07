@@ -55,6 +55,7 @@ Install the following dependencies:
 - [cnpy](https://github.com/rogersce/cnpy)
 - `sudo apt install libglfw3-dev libxinerama-dev libxcursor-dev libxi-dev libspdlog-dev`
 - [gum](https://github.com/charmbracelet/gum)
+- [Vicon](https://github.com/intelligent-soft-robots/vicon-datastream-sdk)
 
 > **Important**  
 > You must build MuJoCo from source, it is not enough to install the precompiled version!
@@ -71,7 +72,7 @@ For accurate time measurement, install and set up the `timed_topics` ROS package
 
 ```zsh
 cd timed_topics
-colcon build
+colcon build --packages-select timed_topics
 ```
 
 You also need to build the `timed_topics` package on your workstation for building the Go2Recorder itself, see next capture.
@@ -80,7 +81,13 @@ Start the node only on the Nvidia Jetson:
 ```zsh
 ros2 run timed_topics republish_node 
 ```
-Alternatively, you can start it on your workstation, but timestamp accuracy may be affected by system load.
+Alternatively, you can start it on your workstation, but timestamp accuracy may be affected by system load. In this case, you should extend your
+python environment to also use the system packages.
+```zsh
+python3.10 -m venv .venv --system-site-packages
+uv pip install catkin_pkg "empy<4" lark
+```
+This is confusing at this point, continue reading, until capture `Python Installation`.
 
 > **Important**  
 > For time synchronization, especially when using Vicon, synchronize the Nvidia Jetson and your workstation. I used [chrony](https://chrony-project.org/) for this.
