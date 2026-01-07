@@ -9,7 +9,7 @@
 
 #include "base/data_source.hpp"
 
-#define TOPIC_LOWCMD "/timed_lowcmd"
+#define TOPIC_LOWCMD "/timedlowcmd"
 
 struct LowCmdData
 {

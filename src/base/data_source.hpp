@@ -44,23 +44,20 @@ bool DataSource<T>::get_closest_match(rclcpp::Time &, void *) {
 
 inline double interpolate_time(const rclcpp::Time &t_1, const rclcpp::Time &t_2, double y_1, double y_2, const rclcpp::Time &at)
 {
-  auto dt_total = t_2 - t_1;
-  auto dt_at = at - t_1;
-
-  int64_t ns_total = dt_total.nanoseconds();
+  int64_t ns_total = t_2.nanoseconds() - t_1.nanoseconds();
+  int64_t dt_at = at.nanoseconds() - t_1.nanoseconds();
 
   if (ns_total == 0)
     return y_1;
 
-  double ratio = static_cast<double>(dt_at.nanoseconds()) / static_cast<double>(ns_total);
+  double ratio = static_cast<double>(dt_at) / static_cast<double>(ns_total);
 
   return y_1 + (y_2 - y_1) * ratio;
 }
 
 inline void interpolate_quat(const rclcpp::Time &t_1, rclcpp::Time &t_2, const Eigen::Quaterniond &quat_1, const Eigen::Quaterniond &quat_2, const rclcpp::Time &at, Eigen::Quaterniond &res)
 {
-  auto dt_total = t_2 - t_1;
-  int64_t ns_total = dt_total.nanoseconds();
+  int64_t ns_total = t_2.nanoseconds() - t_1.nanoseconds();
 
   if (ns_total == 0)
   {
@@ -68,8 +65,8 @@ inline void interpolate_quat(const rclcpp::Time &t_1, rclcpp::Time &t_2, const E
     return;
   }
 
-  auto dt_at = at - t_1;
+  int64_t dt_at = at.nanoseconds() - t_1.nanoseconds();
 
-  double ratio = static_cast<double>(dt_at.nanoseconds()) / static_cast<double>(ns_total);
+  double ratio = static_cast<double>(dt_at) / static_cast<double>(ns_total);
   res = quat_1.slerp(ratio, quat_2);
 }

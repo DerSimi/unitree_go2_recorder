@@ -9,7 +9,7 @@
 
 #include "base/data_source.hpp"
 
-#define TOPIC_LOWSTATE "/timed_lowstate"
+#define TOPIC_LOWSTATE "/timedlowstate"
 
 struct LowStateData
 {

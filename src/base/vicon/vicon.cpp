@@ -135,7 +135,7 @@ bool ViconDataSource::get_closest_match(rclcpp::Time &time, void *res)
     for (auto it = buffer_.rbegin(); it != buffer_.rend(); ++it)
     {
         // the first buffer element which is older...
-        if (it->stamp < time)
+        if (it->stamp.nanoseconds() < time.nanoseconds())
         {
             old = *it;
             old_it = it;
@@ -154,7 +154,7 @@ bool ViconDataSource::get_closest_match(rclcpp::Time &time, void *res)
 
     new_ = *future_it;
 
-    if (!(old.stamp < time && time <= new_.stamp))
+    if (!(old.stamp.nanoseconds() < time.nanoseconds() && time.nanoseconds() <= new_.stamp.nanoseconds()))
         return false;
 
     // Now interpolate position

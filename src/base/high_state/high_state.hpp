@@ -9,7 +9,7 @@
 
 #include "base/data_source.hpp"
 
-#define TOPIC_HIGHSTATE "/timed_sportmodestate"
+#define TOPIC_HIGHSTATE "/timedsportmodestate"
 
 struct HighStateData
 {
