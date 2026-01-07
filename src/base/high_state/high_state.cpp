@@ -48,11 +48,11 @@ bool HighStateSource::get_closest_match(rclcpp::Time &time, void *res)
         return false;
 
     auto closest_it = buffer_.begin();
-    auto min_dt = std::abs((closest_it->stamp - time).nanoseconds());
+    auto min_dt = std::abs(closest_it->stamp.nanoseconds() - time.nanoseconds());
 
     for (auto it = buffer_.begin(); it != buffer_.end(); ++it)
     {
-        auto dt = std::abs((it->stamp - time).nanoseconds());
+        auto dt = std::abs(it->stamp.nanoseconds() - time.nanoseconds());
         if (dt < min_dt)
         {
             min_dt = dt;

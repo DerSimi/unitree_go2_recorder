@@ -145,6 +145,12 @@ void MujocoExtractor::sync()
         last_high_state_match_.base_lin_vel[0] = vicon_data.world_lin_vel[0];
         last_high_state_match_.base_lin_vel[1] = vicon_data.world_lin_vel[1];
         last_high_state_match_.base_lin_vel[2] = vicon_data.world_lin_vel[2];
+
+        // Override low state orientation with VICON data
+        last_low_state_match_.base_quat[0] = vicon_data.orientation[3]; // w
+        last_low_state_match_.base_quat[1] = vicon_data.orientation[0]; // x
+        last_low_state_match_.base_quat[2] = vicon_data.orientation[1]; // y
+        last_low_state_match_.base_quat[3] = vicon_data.orientation[2]; // z
     }
     else
     { // SportModeState
