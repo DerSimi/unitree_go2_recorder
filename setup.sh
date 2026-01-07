@@ -175,6 +175,8 @@ if [ "$mode" = "Real world data" ]; then
 
             sudo ip link set $VICON_ETH_INTERFACE up
 
+            sleep 2
+
             # if vicon fails after setting up the network, ...
             if ! ping_test $VICON_IP; then
                 echo "${PREFIX} Vicon server is NOT reachable, setup failed. Please check your vicon and network setup."
