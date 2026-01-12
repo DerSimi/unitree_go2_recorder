@@ -34,7 +34,10 @@ void ViconDataSource::subscribe(rclcpp::Node *node)
         if (!running_) return;
     client_.EnableSegmentData();
 
-        // Streaming loop
+    // Streaming loop
+    using namespace std::chrono;
+    auto next = steady_clock::now();
+
     while (running_)
         {
             if (client_.GetFrame().Result != ViconDataStreamSDK::CPP::Result::Success)
@@ -63,7 +66,8 @@ void ViconDataSource::subscribe(rclcpp::Node *node)
                 spdlog::warn("Vicon Go2_base not visible.");
             }
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            next += milliseconds(10);
+            std::this_thread::sleep_until(next);
         }
 
     client_.Disconnect(); });

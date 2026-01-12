@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from data_loader import DataLoader
 
 # Load data
-data_loader = DataLoader(name='test')
+data_loader = DataLoader(name='storage')
 data_loader.print_debug()
 
 # # Time management

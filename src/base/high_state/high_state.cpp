@@ -2,6 +2,8 @@
 
 void HighStateSource::subscribe(rclcpp::Node *node)
 {
+    std::cout << "wurde registriert" << std::endl;
+    
     auto callback_group = node->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
     auto sub_opt = rclcpp::SubscriptionOptions();
