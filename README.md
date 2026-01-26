@@ -122,6 +122,9 @@ in the project root (interactive), or run the built executable in `build`:
 ```
 The recording is always stored within the output folder in the project root, a simple name suffices, e. g., `test.npy`.
 
+> **Note**  
+> When recording simulation data only, the recorder expects [Unitree MuJoCo](https://github.com/unitreerobotics/unitree_mujoco) as virtual robot.
+
 # 💻 Python Installation
 If required, the created `.npy` file in the `storage` directory can be rendered using Python.
 See `renderer/play.py` for an example of how to use the recording.
@@ -178,8 +181,6 @@ ros2 bag play myrecording
 ```
 > **Note**  
 > Make sure, that you use in both shells the same ROS domain.
-
-You can test with the sample bag in the samples folder — unpack the archive first.
 
 > **Important**  
 > This applies only to SportStateMode. Vicon does not publish ROS2 topics.

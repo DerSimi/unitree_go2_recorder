@@ -32,6 +32,7 @@ setup_ros2() {
     fi
     source $GO2_ROS/install/setup.sh
 
+    source timed_topics/install/setup.sh 
 }
 
 check_ros2() {
@@ -61,6 +62,9 @@ if [ -z "$GO2_ROS" ]; then
     echo "${PREFIX} No GO2_ROS environment variable set. Please install ros2 for unitree and set the GO2_ROS variable accordingly. \n See: https://github.com/unitreerobotics/unitree_ros2"
     exit 1
 fi
+
+ORANGE="\033[38;5;208m"
+RESET="\033[0m"
 
 arg_count=$#
 
@@ -124,6 +128,8 @@ elif [ "$mode" = "Simulator data" ]; then
     setup_ros2 0
     # To align with the unitree mujoco simulation environment, set ros doamain
     export ROS_DOMAIN_ID=1
+
+    echo "${PREFIX} ${ORANGE}DON'T FORGET: To record simulation data, you have to run ./timed_topics_simulation.sh in a seperate terminal! ${RESET}"
 fi
 
 echo " "
@@ -208,9 +214,6 @@ if [ "$mode" = "Real world data" ]; then
 elif [ "$mode" = "Simulator data" ]; then
     mode="sim"
 fi
-
-ORANGE="\033[38;5;208m"
-RESET="\033[0m"
 
 if [ "$estimator" = "vicon" ]; then
     echo "${PREFIX} Starting the data collection now... \n To skip the tutorial the next time, use this command: \n ${ORANGE} ./setup.sh $mode --mode $estimator --model $model --storage $data_name --vicon_ip $VICON_IP --vicon_subject $vicon_subject ${RESET}"
