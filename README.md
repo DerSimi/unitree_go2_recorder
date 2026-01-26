@@ -123,7 +123,7 @@ in the project root (interactive), or run the built executable in `build`:
 The recording is always stored within the output folder in the project root, a simple name suffices, e. g., `test.npy`.
 
 > **Note**  
-> When recording simulation data only, the recorder expects [Unitree MuJoCo](https://github.com/unitreerobotics/unitree_mujoco) as virtual robot.
+> When recording simulation data only, the recorder expects [Unitree MuJoCo](https://github.com/unitreerobotics/unitree_mujoco) as virtual robot. This is already part of this repo as a submodule. Build it, start ./mujoco.sh and create a ROS node which sends commands to the environment.
 
 # 💻 Python Installation
 If required, the created `.npy` file in the `storage` directory can be rendered using Python.
