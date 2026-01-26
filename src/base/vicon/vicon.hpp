@@ -30,6 +30,7 @@ private:
     void callback(const std::array<double, 3> &position, const std::array<double, 4> &orientation);
 
     std::string hostname_;
+    std::string subject_name_;
     ViconDataStreamSDK::CPP::Client client_;
 
     std::thread thread_;
@@ -43,7 +44,7 @@ private:
     std::deque<ViconData> buffer_;
 
 public:
-    explicit ViconDataSource(const std::string &hostname);
+    explicit ViconDataSource(const std::string &hostname, const std::string &subject_name);
     ~ViconDataSource() override;
     void subscribe(rclcpp::Node *node) override;
     std::deque<ViconData> &buffer() override { return buffer_; }

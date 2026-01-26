@@ -25,11 +25,14 @@ void Simulator::sig_handler(int signum)
     }
 }
 
-Simulator::Simulator(ExtractorMode mode, std::string storage_path, std::string model_path)
+Simulator::Simulator(ExtractorMode mode, const std::string &storage_path, std::string model_path, const std::string &vicon_ip, const std::string &vicon_subject)
 {
     instance_ = this;
     this->storage_path_ = storage_path;
     this->mode_ = mode;
+
+    this->vicon_ip_ = vicon_ip;
+    this->vicon_subject_ = vicon_subject;
 
     // print version, check compatibility
     spdlog::info("MuJoCo version {}", mj_versionString());
@@ -225,7 +228,7 @@ void Simulator::extractor_thread()
 
     rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 4);
 
-    extractor_node_ = std::make_shared<MujocoExtractor>(m_, d_, this->mode_, storage_handler_.get());
+    extractor_node_ = std::make_shared<MujocoExtractor>(m_, d_, this->mode_, storage_handler_.get(), vicon_ip_, vicon_subject_);
     executor.add_node(extractor_node_);
     executor.spin();
 }

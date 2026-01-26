@@ -7,7 +7,7 @@ MujocoExtractor::~MujocoExtractor()
         sync_thread_.join();
 }
 
-MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, ExtractorMode mode, StorageHandler *storage_handler)
+MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, ExtractorMode mode, StorageHandler *storage_handler, const std::string &vicon_ip, const std::string &vicon_subject)
     : rclcpp::Node("mujoco_extractor_node"),
       mj_model_(model),
       mj_data_(data),
@@ -16,7 +16,7 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, ExtractorMode mod
       low_state_source_(),
       low_cmd_source_(data),
       high_state_source_(),
-      vicon_source_("10.0.0.20")
+      vicon_source_(vicon_ip, vicon_subject)
 {
     // New state representation
     low_state_source_.subscribe(this);
@@ -29,7 +29,7 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, ExtractorMode mod
         high_state_source_.subscribe(this);
         break;
     case ExtractorMode::VICON:
-        spdlog::info("Using VICON for base estimation.");
+        spdlog::info("Using VICON for base estimation (ip: {}, subject: {}).", vicon_ip, vicon_subject);
         // This is not a ros topic, but we still stick to this interface
         vicon_source_.subscribe(this);
         break;

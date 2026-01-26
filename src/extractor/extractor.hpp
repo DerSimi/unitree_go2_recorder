@@ -33,7 +33,7 @@ enum class ExtractorMode {
 class MujocoExtractor : public rclcpp::Node
 {
 public:
-    MujocoExtractor(mjModel *model, mjData *data, ExtractorMode mode, StorageHandler* storage_handler);
+    MujocoExtractor(mjModel *model, mjData *data, ExtractorMode mode, StorageHandler* storage_handler, const std::string &vicon_ip, const std::string &vicon_subject);
     ~MujocoExtractor();
 
     // This function is only triggered for visualization.

@@ -1,10 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
 from data_loader import DataLoader
 
 # Load data
-data_loader = DataLoader(name='storage')
+data_loader = DataLoader(name=sys.argv[1])
 data_loader.print_debug()
 
 # # Time management

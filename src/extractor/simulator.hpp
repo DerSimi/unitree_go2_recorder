@@ -41,7 +41,7 @@ namespace mju = ::mujoco::sample_util;
 class Simulator
 {
 public:
-    Simulator(ExtractorMode mode, std::string storage_path = "storage.npy", std::string model_path = "model/scene.xml");
+    Simulator(ExtractorMode mode, const std::string &storage_path, std::string model_path, const std::string &vicon_ip, const std::string &vicon_subject);
     ~Simulator() = default;
 private:
     // General extractor functionality
@@ -49,6 +49,11 @@ private:
     ExtractorMode mode_;
 
     std::string storage_path_;
+
+    // For better vicon handling only
+    std::string vicon_ip_;
+    std::string vicon_subject_;
+
     std::unique_ptr<StorageHandler> storage_handler_;
 
     // Simulator specific

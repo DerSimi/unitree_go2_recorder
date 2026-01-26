@@ -186,11 +186,18 @@ if [ "$mode" = "Real world data" ]; then
     fi
 fi
 
+# Question for Vicon subject
+if [ "$estimator" = "vicon" ]; then
+    vicon_subject=$(gum input --placeholder "What vicon subject should be tracked?" --value "Go2_base")
+    echo "${PREFIX} Tracked subject: $vicon_subject"
+fi
+
 # Select model
 echo "${PREFIX} The most part is done. Now, you can choose the MuJoCo model to use, for this see the '/model' directory."
 model=$(gum input --placeholder "What model do you want to use?" --value "model/scene.xml")
 echo "${PREFIX} Selected model: $model"
 
+# Storage directory
 echo "${PREFIX} And at last, provide a name for the recording."
 data_name=$(gum input --placeholder "How should we call it? Please avoid spaces :/" --value "storage.npy")
 echo "${PREFIX} Data will be recorded to: output/$data_name."
@@ -205,6 +212,10 @@ fi
 ORANGE="\033[38;5;208m"
 RESET="\033[0m"
 
-echo "${PREFIX} Starting the data collection now... \n To skip the tutorial the next time, use this command: \n ${ORANGE} ./setup.sh $mode --mode $estimator --model $model --storage $data_name ${RESET}"
-
-start_program --mode $estimator --model $model --storage $data_name
+if [ "$estimator" = "vicon" ]; then
+    echo "${PREFIX} Starting the data collection now... \n To skip the tutorial the next time, use this command: \n ${ORANGE} ./setup.sh $mode --mode $estimator --model $model --storage $data_name --vicon_ip $VICON_IP --vicon_subject $vicon_subject ${RESET}"
+    start_program --mode $estimator --model $model --storage $data_name --vicon_ip $VICON_IP --vicon_subject $vicon_subject
+else
+    echo "${PREFIX} Starting the data collection now... \n To skip the tutorial the next time, use this command: \n ${ORANGE} ./setup.sh $mode --mode $estimator --model $model --storage $data_name ${RESET}"
+    start_program --mode $estimator --model $model --storage $data_name
+fi

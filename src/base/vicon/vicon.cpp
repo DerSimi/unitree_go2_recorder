@@ -1,7 +1,7 @@
 #include "base/vicon/vicon.hpp"
 
-ViconDataSource::ViconDataSource(const std::string &hostname)
-    : hostname_(hostname)
+ViconDataSource::ViconDataSource(const std::string &hostname, const std::string &subject_name)
+    : hostname_(hostname), subject_name_(subject_name)
 {
 }
 
@@ -47,11 +47,10 @@ void ViconDataSource::subscribe(rclcpp::Node *node)
                 continue;
             }
 
-            std::string subject = "Go2_base";
-            std::string root_segment = client_.GetSubjectRootSegmentName(subject).SegmentName;
+            std::string root_segment = client_.GetSubjectRootSegmentName(subject_name_).SegmentName;
 
-            auto translation = client_.GetSegmentGlobalTranslation(subject, root_segment);
-            auto rotation = client_.GetSegmentGlobalRotationQuaternion(subject, root_segment);
+            auto translation = client_.GetSegmentGlobalTranslation(subject_name_, root_segment);
+            auto rotation = client_.GetSegmentGlobalRotationQuaternion(subject_name_, root_segment);
 
             if (!translation.Occluded && !rotation.Occluded)
             {
@@ -180,8 +179,8 @@ bool ViconDataSource::get_closest_match(rclcpp::Time &time, void *res)
     }
 
     // Interpolate orientation
-    Eigen::Quaterniond rot_1(old.orientation);
-    Eigen::Quaterniond rot_2(new_.orientation);
+    Eigen::Quaterniond rot_1(old.orientation[3], old.orientation[0], old.orientation[1], old.orientation[2]);
+    Eigen::Quaterniond rot_2(new_.orientation[3], new_.orientation[0], new_.orientation[1], new_.orientation[2]);
 
     Eigen::Quaterniond result;
     interpolate_quat(t_1, t_2, rot_1, rot_2, time, result);
