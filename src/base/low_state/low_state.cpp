@@ -45,6 +45,12 @@ void LowStateSource::callback(const timed_topics::msg::TimedLowState::SharedPtr 
         data.dq_raw[i] = state.motor_state[i].dq_raw;
     }
 
+    // Store foot force
+    for (int i = 0; i < 4; i++)
+    {
+        data.foot_force[i] = state.foot_force[i];
+    }
+
     // Lock mutex and write into buffer
     {
         std::lock_guard<std::mutex> lock(DataSourceBase::sync_mtx_);

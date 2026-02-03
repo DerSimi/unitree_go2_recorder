@@ -60,6 +60,17 @@ void StorageHandler::add_state(const LowStateData *low_state_data, const LowCmdD
     data_.insert(data_.end(), low_state_data->q_raw.begin(), low_state_data->q_raw.end());
     data_.insert(data_.end(), low_state_data->dq_raw.begin(), low_state_data->dq_raw.end());
 
+    // LowState foot force
+    std::vector<mjtNum> foot_force;
+    foot_force.reserve(4);
+
+    foot_force.push_back(low_state_data->foot_force[0]);
+    foot_force.push_back(low_state_data->foot_force[1]);
+    foot_force.push_back(low_state_data->foot_force[2]);
+    foot_force.push_back(low_state_data->foot_force[3]);
+
+    data_.insert(data_.end(), foot_force.begin(), foot_force.end());
+
     time_.push_back(timestamp);
 }
 

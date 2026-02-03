@@ -21,6 +21,7 @@ struct LowStateData
     std::vector<float> dq_raw;       // 12 raw joint velocities
     mjtNum base_quat[4];             // base rotation
     mjtNum base_ang_vel[3];          // base angular velocity
+    mjtNum foot_force[4];          // robot foot force
 
     LowStateData(size_t num_motor)
         : qpos_joints(num_motor),

@@ -34,8 +34,9 @@ class DataLoader:
         state = rearrange(
             state,
             "(frame dim) -> frame dim",
-            dim=(self.model.nq + self.model.nv + self.model.nu + 8 * self.model.nu),
+            dim=(self.model.nq + self.model.nv + self.model.nu + 8 * self.model.nu + 4),
         )
+        # 8 * are the extra fields for each joint and + 4 covers the recorded foot force
 
         nq = self.model.nq
         nv = self.model.nv
@@ -69,6 +70,9 @@ class DataLoader:
         i += nu
         self.dq_raw = state[:, i : i + nu]
         i += nu
+        
+        # Foot force (4)
+        self.foot_force = state[:, i : i + 4]
 
         self.compact_states = rearrange(
             state[:, : self.model.nq + self.model.nv], "frame posvel -> 1 frame posvel"
@@ -151,6 +155,13 @@ class DataLoader:
         Returns the duration in seconds.
         """
         return self.duration
+    
+    def get_foot_force(self):
+        """
+        Returns the foot forces (4)
+        Shape: (batch, 4)
+        """
+        return self.foot_force
     
     def print_debug(self):
         print("------------------------------------------------------")
