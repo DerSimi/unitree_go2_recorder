@@ -1,6 +1,6 @@
 #include "storage_handler.hpp"
 
-StorageHandler::StorageHandler(int nq, int nv, int nu) : nq_(nq), nv_(nv), nu_(nu)
+StorageHandler::StorageHandler(int nq, int nv, int nu) : nq_(nq), nv_(nv), nu_(nu), idx_(0)
 {
     // Reserve capacity for 10.000 states in the storage buffer
     // 8 for all helper fields
@@ -72,6 +72,17 @@ void StorageHandler::add_state(const LowStateData *low_state_data, const LowCmdD
     data_.insert(data_.end(), foot_force.begin(), foot_force.end());
 
     time_.push_back(timestamp);
+
+    // Increase state idx for marker
+    idx_++;
+}
+
+void StorageHandler::add_marker()
+{
+    int current_idx = idx_.load();
+    markers_.push_back(current_idx);
+
+    spdlog::info("Added marker at index {}.", current_idx);
 }
 
 void StorageHandler::store_data(const char *filename)
@@ -100,6 +111,21 @@ void StorageHandler::store_data(const char *filename)
     }
 
     cnpy::npz_save(filename, "dt", dt, "a");
+
+    if (!markers_.empty())
+    {
+        std::ostringstream oss;
+        oss << "Markers at indices: ";
+        for (size_t i = 0; i < markers_.size(); ++i)
+        {
+            oss << markers_[i];
+            if (i != markers_.size() - 1)
+                oss << ", ";
+        }
+        spdlog::info(oss.str());
+
+        cnpy::npz_save(filename, "markers", markers_, "a");
+    }
 
     spdlog::info("Recording stored as {}.", filename);
 }

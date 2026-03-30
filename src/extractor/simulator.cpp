@@ -50,6 +50,9 @@ Simulator::Simulator(ExtractorMode mode, const std::string &storage_path, std::s
     mjvPerturb pert;
     mjv_defaultPerturb(&pert);
 
+    // start key listener thread
+    key_listener_thread_ = std::thread(&Simulator::key_listener, this);
+
     // simulate object encapsulates the UI
     sim_ = std::make_unique<mj::Simulate>(
         std::make_unique<mj::GlfwAdapter>(),
@@ -242,6 +245,11 @@ void Simulator::terminate()
         // Avoid calling terminate twice
         instance_ = nullptr;
 
+        // Stop key listener
+        // key_running_ = false;
+        // if (key_listener_thread_.joinable())
+        //     key_listener_thread_.join();
+
         // Kill MuJoCo
         sim_->exitrequest.store(true);
 
@@ -256,4 +264,21 @@ void Simulator::terminate()
 
         storage_handler_->store_data((outdir / this->storage_path_).c_str());
     }
+}
+
+void Simulator::key_listener() {
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    while (key_running_) {
+        char ch = getchar();
+        if (ch == ' ') {
+            storage_handler_->add_marker();
+        }
+    }
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 }

@@ -50,6 +50,7 @@ MujocoExtractor::MujocoExtractor(mjModel *model, mjData *data, ExtractorMode mod
     check_sensor();
 
     spdlog::info("Save your recording by closing the MuJoCo window or pressing Ctrl+C.");
+    spdlog::info("To set a marker during recording, press SPACE.");
 }
 
 // This method will override mj_data and is only called when the simulation mutex is locked.

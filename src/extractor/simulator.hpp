@@ -31,6 +31,7 @@ extern "C"
 {
 #include <sys/errno.h>
 #include <unistd.h>
+#include <termios.h>
 }
 
 namespace mj = ::mujoco;
@@ -72,4 +73,9 @@ private:
 
     // Trigger storage
     void terminate();
+
+    // Key listener to set markers
+    std::thread key_listener_thread_;
+    void key_listener();
+    std::atomic<bool> key_running_{true};
 };

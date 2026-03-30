@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <atomic>
 #include <vector>
 
 #include <cnpy.h>
@@ -17,11 +18,13 @@
 class StorageHandler
 {
 private:
+    std::atomic<int> idx_;
     int nq_;
     int nv_;
     int nu_;
     std::vector<mjtNum> data_;
     std::vector<double> time_;
+    std::vector<int> markers_;
 
 public:
     StorageHandler(int nq, int nv, int nu);
@@ -30,6 +33,10 @@ public:
     // add mujoco state to the storage buffer
     void add_state(const LowStateData* low_state_data, const LowCmdData* low_cmd_data, const HighStateData* high_state_data, double timestamp);
 
+    // add marker
+    void add_marker();
+
     // write data to file
     void store_data(const char *filename);
+
 };
