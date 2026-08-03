@@ -3,7 +3,7 @@
 ![ROS2](https://img.shields.io/badge/ROS2-Humble-blue)
 ![MuJoCo](https://img.shields.io/badge/MuJoCo-3.2.7-blue)
 
-Capture and replay accurate, timestamped Unitree Go2 data for analysis and visualization using MuJoCo — compatible with NumPy and ROS2 bags.
+Capture and replay accurate, high frequency timestamped Unitree Go2 data for analysis and visualization using MuJoCo — compatible with NumPy and ROS2 bags. Topics are matched and merged with different data sources, like Vicon for base estimation.
 
 > **Note**  
 > Data is only recorded when commands are received, either from the remote control or via ROS topic.
